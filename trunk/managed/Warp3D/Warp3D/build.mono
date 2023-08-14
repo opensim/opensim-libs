@@ -1,2 +1,0 @@
-#!/bin/bash
-gmcs -unsafe -out:Warp3D.dll -target:library *.cs Properties/AssemblyInfo.cs -r:System.Drawing.dll -r:System.Data.dll -r:System.Windows.Forms.dll
