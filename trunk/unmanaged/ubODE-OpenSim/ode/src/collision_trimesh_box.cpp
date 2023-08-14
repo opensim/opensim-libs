@@ -642,8 +642,8 @@ static bool _cldClosestPointOnTwoLines(
     // if denominator is positive
     if (fd > dEpsilon)
     {
-        fd = 1.0f / fd;
         // calculate points of closest approach
+        fd = 1.0f / fd;
         dVector3 vp;
         dSubtractVectors3r4(vp, vPoint2, vPoint1);
 
@@ -672,30 +672,23 @@ void sTrimeshBoxColliderData::_cldClipping(const dVector3 &v0, const dVector3 &v
         dVector3 vub, vPb, vPa;
         dCopyVector3r4(vPa, m_vHullBoxPos);
 
-        dVector3 *rot = (dVector3*)m_BoxRotTransposed;
-
         // calculate point on box edge
-        if(dCalcVectorDot3(m_vBestNormal, *rot) > 0)
-            dAddScaledVector3r4(vPa, *rot, m_vBoxHalfSize[0]);
+        if (dCalcVectorDot3(m_vBestNormal, m_BoxRotTransposed) > 0)
+            dAddScaledVector3r4(vPa, m_BoxRotTransposed, m_vBoxHalfSize[0]);
         else
-            dAddScaledVector3r4(vPa, *rot, -m_vBoxHalfSize[0]);
-        
-        rot += 4;
-        if (dCalcVectorDot3(m_vBestNormal, *rot) > 0)
-            dAddScaledVector3r4(vPa, *rot, m_vBoxHalfSize[1]);
-        else
-            dAddScaledVector3r4(vPa, *rot, -m_vBoxHalfSize[1]);
+            dAddScaledVector3r4(vPa, m_BoxRotTransposed, -m_vBoxHalfSize[0]);
 
-        rot += 4;
-        if (dCalcVectorDot3(m_vBestNormal, *rot))
-            dAddScaledVector3r4(vPa, *rot, m_vBoxHalfSize[2]);
+        if (dCalcVectorDot3(m_vBestNormal, m_BoxRotTransposed + 4) > 0)
+            dAddScaledVector3r4(vPa, m_BoxRotTransposed + 4, m_vBoxHalfSize[1]);
         else
-            dAddScaledVector3r4(vPa, *rot, -m_vBoxHalfSize[2]);
+            dAddScaledVector3r4(vPa, m_BoxRotTransposed + 4, -m_vBoxHalfSize[1]);
+
+        if (dCalcVectorDot3(m_vBestNormal, m_BoxRotTransposed + 8))
+            dAddScaledVector3r4(vPa, m_BoxRotTransposed + 8, m_vBoxHalfSize[2]);
+        else
+            dAddScaledVector3r4(vPa, m_BoxRotTransposed + 8, -m_vBoxHalfSize[2]);
 
         int iEdge = (m_iBestAxis - 5) % 3;
-
-        // setup direction parameter for box edge
-        dVector3& vua = *(dVector3*)(m_BoxRotTransposed + 4 * iEdge);
 
         // decide which edge is on triangle
         switch(iEdge)
@@ -717,6 +710,10 @@ void sTrimeshBoxColliderData::_cldClipping(const dVector3 &v0, const dVector3 &v
         dNormalize3(vub);
 
         dReal fParam1, fParam2;
+
+        // setup direction parameter for box edge
+        int col = (m_iBestAxis - 5) / 3;
+        dVector3& vua = *(dVector3*)(m_BoxRotTransposed + 4 * col);
 
         // find two closest points on both edges
         _cldClosestPointOnTwoLines(vPa, vua, vPb, vub, fParam1, fParam2);
@@ -1045,13 +1042,7 @@ static void dQueryBTLPotentialCollisionTriangles(OBBCollider &Collider,
     Box.mCenter.x = vPosBox[0];
     Box.mCenter.y = vPosBox[1];
     Box.mCenter.z = vPosBox[2];
-
-    // It is a potential issue to explicitly cast to float 
-    // if custom width floating point type is introduced in OPCODE.
-    // It is necessary to make a typedef and cast to it
-    // (e.g. typedef float opc_float;)
-    // However I'm not sure in what header it should be added.
-
+    
     Box.mExtents.x = cData.m_vBoxHalfSize[0];
     Box.mExtents.y = cData.m_vBoxHalfSize[1];
     Box.mExtents.z = cData.m_vBoxHalfSize[2];
@@ -1102,7 +1093,8 @@ static void dQueryBTLPotentialCollisionTriangles(OBBCollider &Collider,
     else
     {
         Collider.SetTemporalCoherence(false);
-        Collider.Collide(BoxCache, Box, TriMesh->Data->BVTree, null, &MakeMatrix(vPosMesh, mRotMesh, amatrix));
+        Collider.Collide(BoxCache, Box, TriMesh->Data->BVTree, null,
+            &MakeMatrix(vPosMesh, mRotMesh, amatrix));
     }
 }
 
@@ -1122,7 +1114,8 @@ int dCollideBTL(dxGeom* g1, dxGeom* BoxGeom, int Flags, dContactGeom* Contacts, 
     TrimeshCollidersCache *pccColliderCache = GetTrimeshCollidersCache(uiTLSKind);
     OBBCollider& Collider = pccColliderCache->_OBBCollider;
 
-    dQueryBTLPotentialCollisionTriangles(Collider, cData, TriMesh, BoxGeom, pccColliderCache->defaultBoxCache);
+    dQueryBTLPotentialCollisionTriangles(Collider, cData, TriMesh, BoxGeom,
+        pccColliderCache->defaultBoxCache);
 
     if (!Collider.GetContactStatus()) {
         // no collision occurred
@@ -1176,7 +1169,8 @@ int dCollideBTL(dxGeom* g1, dxGeom* BoxGeom, int Flags, dContactGeom* Contacts, 
 //   position and normal as an existing contact, but a larger
 //   penetration depth, this new depth is used instead
 //
-static void GenerateContact(int in_Flags, dContactGeom* in_Contacts, int in_Stride,
+static void
+GenerateContact(int in_Flags, dContactGeom* in_Contacts, int in_Stride,
     dxGeom* in_g1, dxGeom* in_g2, int TriIndex,
     const dVector3 in_ContactPos, const dVector3 in_Normal, dReal in_Depth,
     int& OutTriCount)
@@ -1229,9 +1223,7 @@ static void GenerateContact(int in_Flags, dContactGeom* in_Contacts, int in_Stri
             }
         }
         if (duplicate || OutTriCount == (in_Flags & NUMC_MASK))
-        {
             return;
-        }
     }
     else
     {
