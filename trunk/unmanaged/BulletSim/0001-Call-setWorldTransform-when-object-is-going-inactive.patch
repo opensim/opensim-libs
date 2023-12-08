@@ -1,28 +1,26 @@
-From 4dec1c667448dc2518a38212484c8a39dc203c65 Mon Sep 17 00:00:00 2001
-From: Robert Adams <Robert.Adams@intel.com>
-Date: Tue, 4 Dec 2012 08:17:53 -0800
-Subject: [PATCH 1/2] Call setWorldTransform when object is going inactive.
- Creates property update event when velocities are set
- to zero.
+From 9e8f6c61e1cd05bc211297c1edcadecfa20779c6 Mon Sep 17 00:00:00 2001
+From: Robert Adams <misterblue@misterblue.com>
+Date: Wed, 14 Dec 2022 04:23:51 +0000
+Subject: [PATCH] Add island sleeping transform event
 
 ---
- .../Dynamics/btDiscreteDynamicsWorld.cpp           |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ src/BulletDynamics/Dynamics/btDiscreteDynamicsWorld.cpp | 3 +++
+ 1 file changed, 3 insertions(+)
 
 diff --git a/src/BulletDynamics/Dynamics/btDiscreteDynamicsWorld.cpp b/src/BulletDynamics/Dynamics/btDiscreteDynamicsWorld.cpp
-index 48ba8bd..be14294 100755
+index 9e99c154f..71af633b4 100644
 --- a/src/BulletDynamics/Dynamics/btDiscreteDynamicsWorld.cpp
 +++ b/src/BulletDynamics/Dynamics/btDiscreteDynamicsWorld.cpp
-@@ -634,6 +634,9 @@ void	btDiscreteDynamicsWorld::updateActivationState(btScalar timeStep)
+@@ -616,6 +616,9 @@ void btDiscreteDynamicsWorld::updateActivationState(btScalar timeStep)
  					{
- 						body->setAngularVelocity(btVector3(0,0,0));
- 						body->setLinearVelocity(btVector3(0,0,0));
+ 						body->setAngularVelocity(btVector3(0, 0, 0));
+ 						body->setLinearVelocity(btVector3(0, 0, 0));
 +                        // when sleeping, force the motion state to be called/updated
 +                        if (body->getMotionState())
 +                            body->getMotionState()->setWorldTransform(body->getWorldTransform());
  					}
- 
  				}
+ 			}
 -- 
-1.7.9
+2.25.1
 

@@ -29,7 +29,16 @@
 #ifndef ARCH_STUFF_H
 #define ARCH_STUFF_H
 
-// define types that are always 32bits (don't change on 64 bit systems)
+// 20230107 RA: This file exists to create definitions for 32 vs 64 bit
+//    architectures. Since we're moving into the future, 32bit is old
+//    and is no longer a supported machine architecture.
+//    That said, C# floats are 32bits and, for reporting collisions and
+//    other interactions, item IDs are presumed to be the same size
+//    as a float. Therefore, IDTYPE must be 32bits.
+
+// Define types that are always 32bits (don't change on 64 bit systems)
+// 20230107 RA: the symbol _MSC_VER is only defined for Win32 and thus will
+//    never be true. Test and code kept for historical reference.
 #ifdef _MSC_VER
 	typedef signed __int32		int32_t;
 	typedef unsigned __int32	uint32_t;
@@ -37,15 +46,20 @@
 	#include <inttypes.h>
 #endif
 
+// See above discussion about IDTYPE needing to be same size as a float.
 #define IDTYPE uint32_t
 
-#ifdef __x86_64__
-	// 64bit systems don't allow you to cast directly from a void* to an unsigned int
-	#define PACKLOCALID(xx) ((void*)((uint64_t)(xx)))
-	#define CONVLOCALID(xx) ((IDTYPE)((uint64_t)(xx)))
-#else
+#ifdef __x86_32__
 	#define PACKLOCALID(xx) ((void*)(xx))
 	#define CONVLOCALID(xx) ((IDTYPE)(xx))
+#else
+    // CONVLOCALID is usually called operating on a void* which will
+    //    be 64bit on most modern systems. 
+    //    64bit systems don't allow you to cast directly from a void* to an
+    //    unsigned int thus we cast it to uint64_t before chopping it to a
+    //    IDTYPE (uint32_t).
+	#define PACKLOCALID(xx) ((void*)((uint64_t)(xx)))
+	#define CONVLOCALID(xx) ((IDTYPE)((uint64_t)(xx)))
 #endif
 
 // key used for identifying meshes and hulls

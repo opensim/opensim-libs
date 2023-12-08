@@ -39,7 +39,7 @@
 #if defined(__linux__) || defined(__APPLE__) 
 #include "HACD/hacdHACD.h"
 #elif defined(_WIN32) || defined(_WIN64)
-#include "../extras/HACD/hacdHACD.h"
+#include "HACD/hacdHACD.h"
 #else
 #error "Platform type not understood."
 #endif
@@ -170,8 +170,8 @@ void BulletSim::initPhysics2(ParamBlock* parms,
 {
 	// Tell the world we're initializing and output size of types so we can
 	//    debug mis-alignments when changing architecture.
-	// m_worldData.BSLog("InitPhysics: sizeof(int)=%d, sizeof(long)=%d, sizeof(long long)=%d, sizeof(float)=%d",
-	// 	sizeof(int), sizeof(long), sizeof(long long), sizeof(float));
+	m_worldData.BSLog("InitPhysics: sizeof(int)=%d, sizeof(long)=%d, sizeof(long long)=%d, sizeof(float)=%d",
+		sizeof(int), sizeof(long), sizeof(long long), sizeof(float));
 
 	// remember the pointers to pinned memory for returning collisions and property updates
 	maxCollisionsPerFrame = maxCollisions;
