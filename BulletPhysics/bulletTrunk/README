@@ -1,3 +1,9 @@
+============================================
+December 2023: This is an old, old, old attempt at building the Bullet physics engine that
+happened to get checked into opensim-libs.
+If you are interested in Bullet physics for OpenSimulator, check out the BulletSim
+physics module in opensim-libs/trunk/unmanaged/BulletSim.
+============================================
 
 Bullet is a 3D Collision Detection and Rigid Body Dynamics Library for games and animation.
 Free for commercial use, including Playstation 3, open source under the ZLib License.
