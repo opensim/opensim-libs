@@ -12,7 +12,7 @@
 # This also applies the BulletSim patches to the Bullet sources.
 
 # Set these values to 'yes' or 'no' to enable/disable fetching and building
-FETCHBULLETSOURCES=${FETCHBULLETSOURCES:-no}
+FETCHBULLETSOURCES=${FETCHBULLETSOURCES:-yes}
 BUILDBULLET2=${BUILDBULLET2:-no}    # usually don't need the old version
 BUILDBULLET3=${BUILDBULLET3:-yes}
 

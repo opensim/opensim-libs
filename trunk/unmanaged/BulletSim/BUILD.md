@@ -20,7 +20,7 @@ date, and the target machine architecture. Expect to see filenames like:
 
 - `libBulletSim-3.25-20230122-x86_64.so` (Intel arch, Linux)
 - `libBulletSim-3.25-20230122-aarch64.so` (ARM 64 bit arch, Linux)
-- `libBulletSim-3.25-20230122-universal.dynlib` (either x86 or ARM, IOS)
+- `libBulletSim-3.25-20230122-universal.dylib` (x86_64 and arm64 "universal binary", macOS)
 - `libBulletSim-3.25-20230122-x86.64.dll` (Intel arch, Windows)
 
 The selection of which binary to use must be configured in OpenSimulator.
@@ -86,7 +86,7 @@ and patching the 2.86 version of Bullet.
     Note that after this step, the Bullet physics engine binaries will be in
     the `lib` directory and the include files must be copied into `include/`.
 
-  b) Linux and IOS:
+  b) Linux and macOS:
     
     The script "buildBulletCMake.sh" has the appropriate cmake and compilation
     commands for Linux and IOS.
@@ -112,7 +112,7 @@ and patching the 2.86 version of Bullet.
     .\buildBulletSim.ps1
 ```
 
-  b) Linux and IOS:
+  b) Linux and macOS:
 
     Run BulletSim compile and link script:
 
