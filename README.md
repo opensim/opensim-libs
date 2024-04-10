@@ -1,6 +1,8 @@
 This is a code repository containing various 3rd party library packages used by opensim (as version >= 0.9.3).
 
-Opensim will avoid to use Nuget whenever possible
+Opensim will avoid to use Nuget whenever possible.
+
+In same cases we may extract and use only the files we need from the packages garbage
 
 OpenSim checks out with most of these libs precompiled in the bin folder.
 
