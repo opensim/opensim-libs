@@ -1,11 +1,12 @@
 This is a code repository containing various 3rd party library packages used by opensim (as version >= 0.9.3).
 
 
-###Managed code libraries###
+# Managed code libraries
 
 In the case of managed code libraries, these will be dotNet .dll assemblies compiled to run on dotnet platform. These are placed in Opensim `bin/` folder
 
-###Native code libraries###
+# Native code libraries
+
 In the case of unmanaged (native) code, like C/C++ libs, most of these are placed in folder `bin/lib64`.
 (Since 0.9.3.0 32bit is no longer supported, so folder bin/lib32 alternative place was removed).
 
@@ -15,6 +16,7 @@ Some may be based on DllmapConfigHelper to find the native libraries and need a 
 
 A few cases may use other arrangement
 
-###Nuget###
+###Nuget
+
 Opensim will avoid to use Nuget whenever possible. In same cases we may extract and use only the files we need out of the packages garbage
 
