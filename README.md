@@ -16,7 +16,7 @@ Some may be based on DllmapConfigHelper to find the native libraries and need a 
 
 A few cases may use other arrangement
 
-###Nuget
+# Nuget
 
 Opensim will avoid to use Nuget whenever possible. In same cases we may extract and use only the files we need out of the packages garbage
 
