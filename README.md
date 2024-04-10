@@ -2,7 +2,7 @@ This is a code repository containing various 3rd party library packages used by 
 
 Opensim will avoid to use Nuget whenever possible.
 
-In same cases we may extract and use only the files we need from the packages garbage
+In same cases we may extract and use only the files we need out of the packages garbage
 
 OpenSim checks out with most of these libs precompiled in the bin folder.
 
