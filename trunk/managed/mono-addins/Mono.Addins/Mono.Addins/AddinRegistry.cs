@@ -67,13 +67,13 @@ namespace Mono.Addins
 	/// </remarks>
 	public class AddinRegistry: IDisposable
 	{
-		AddinDatabase database;
-		StringCollection addinDirs;
-		string basePath;
+		readonly AddinDatabase database;
+		readonly string [] addinDirs;
+		readonly string basePath;
+		readonly string startupDirectory;
+		readonly string addinsDir;
+		readonly string databaseDir;
 		string currentDomain;
-		string startupDirectory;
-		string addinsDir;
-		string databaseDir;
 		
 		/// <summary>
 		/// Initializes a new instance.
@@ -92,7 +92,7 @@ namespace Mono.Addins
 		/// of the Environment.SpecialFolder enumeration can be used (always between square
 		/// brackets)
 		/// </remarks>
-		public AddinRegistry (string registryPath): this (null, registryPath, null, null, null)
+		public AddinRegistry (string registryPath): this (null, registryPath, null, null, null, null)
 		{
 		}
 		
@@ -116,7 +116,7 @@ namespace Mono.Addins
 		/// of the Environment.SpecialFolder enumeration can be used (always between square
 		/// brackets)
 		/// </remarks>
-		public AddinRegistry (string registryPath, string startupDirectory): this (null, registryPath, startupDirectory, null, null)
+		public AddinRegistry (string registryPath, string startupDirectory): this (null, registryPath, startupDirectory, null, null, null)
 		{
 		}
 		
@@ -145,7 +145,7 @@ namespace Mono.Addins
 		/// of the Environment.SpecialFolder enumeration can be used (always between square
 		/// brackets)
 		/// </remarks>
-		public AddinRegistry (string registryPath, string startupDirectory, string addinsDir): this (null, registryPath, startupDirectory, addinsDir, null)
+		public AddinRegistry (string registryPath, string startupDirectory, string addinsDir): this (null, registryPath, startupDirectory, addinsDir, null, null)
 		{
 		}
 		
@@ -179,11 +179,11 @@ namespace Mono.Addins
 		/// of the Environment.SpecialFolder enumeration can be used (always between square
 		/// brackets)
 		/// </remarks>
-		public AddinRegistry (string registryPath, string startupDirectory, string addinsDir, string databaseDir): this (null, registryPath, startupDirectory, addinsDir, databaseDir)
+		public AddinRegistry (string registryPath, string startupDirectory, string addinsDir, string databaseDir): this (null, registryPath, startupDirectory, addinsDir, databaseDir, null)
 		{
 		}
 		
-		internal AddinRegistry (AddinEngine engine, string registryPath, string startupDirectory, string addinsDir, string databaseDir)
+		internal AddinRegistry (AddinEngine engine, string registryPath, string startupDirectory, string addinsDir, string databaseDir, string additionalGlobalAddinDirectory)
 		{
 			basePath = Path.GetFullPath (Util.NormalizePath (registryPath));
 			
@@ -208,8 +208,10 @@ namespace Mono.Addins
 
 			// Look for add-ins in the hosts directory and in the default
 			// addins directory
-			addinDirs = new StringCollection ();
-			addinDirs.Add (DefaultAddinsFolder);
+			if (additionalGlobalAddinDirectory != null)
+				addinDirs = new [] { DefaultAddinsFolder, additionalGlobalAddinDirectory };
+			else
+				addinDirs = new [] { DefaultAddinsFolder };
 			
 			// Initialize the database after all paths have been set
 			database = new AddinDatabase (engine, this);
@@ -239,15 +241,15 @@ namespace Mono.Addins
 		
 		internal static AddinRegistry GetGlobalRegistry (AddinEngine engine, string startupDirectory)
 		{
-			AddinRegistry reg = new AddinRegistry (engine, GlobalRegistryPath, startupDirectory, null, null);
 			string baseDir;
 			if (Util.IsWindows)
 				baseDir = Environment.GetFolderPath (Environment.SpecialFolder.CommonProgramFiles); 
 			else
 				baseDir = "/etc";
-			
-			reg.GlobalAddinDirectories.Add (Path.Combine (baseDir, "mono.addins"));
-			return reg;
+
+			var globalDir = Path.Combine (baseDir, "mono.addins");
+
+			return new AddinRegistry (engine, GlobalRegistryPath, startupDirectory, null, null, globalDir);
 		}
 		
 		internal bool UnknownDomain {
@@ -637,6 +639,11 @@ namespace Mono.Addins
 			database.Update (monitor, currentDomain);
 		}
 
+		internal void Update(IProgressStatus monitor, AddinEngineTransaction addinEngineTransaction)
+		{
+			database.Update(monitor, currentDomain, addinEngineTransaction:addinEngineTransaction);
+		}
+
 		/// <summary>
 		/// Regenerates the cached data of the add-in registry.
 		/// </summary>
@@ -645,13 +652,34 @@ namespace Mono.Addins
 		/// </param>
 		public void Rebuild (IProgressStatus monitor)
 		{
-			database.Repair (monitor, currentDomain);
+			var context = new ScanOptions ();
+			context.CleanGeneratedAddinScanDataFiles = true;
+			database.Repair (monitor, currentDomain, context);
 
 			// A full rebuild may cause the domain to change
 			if (!string.IsNullOrEmpty (startupDirectory))
 				currentDomain = database.GetFolderDomain (null, startupDirectory);
 		}
-		
+
+		/// <summary>
+		/// Generates add-in data cache files for add-ins in the provided folder
+		/// and any other directory included through a .addins file.
+		/// If folder is not provided, it scans the startup directory.
+		/// </summary>
+		/// <param name="monitor">
+		/// Progress monitor to keep track of the rebuild operation.
+		/// </param>
+		/// <param name="folder">
+		/// Folder that contains the add-ins to be scanned.
+		/// </param>
+		/// <param name="recursive">
+		/// If true, sub-directories are scanned recursively
+		/// </param>
+		public void GenerateAddinScanDataFiles (IProgressStatus monitor, string folder = null, bool recursive = false)
+		{
+			database.GenerateScanDataFiles (monitor, folder ?? StartupDirectory, recursive);
+		}
+
 		/// <summary>
 		/// Registers an extension. Only AddinFileSystemExtension extensions are supported right now.
 		/// </summary>
@@ -691,9 +719,14 @@ namespace Mono.Addins
 			return database.AddinDependsOn (currentDomain, id1, id2);
 		}
 		
-		internal void ScanFolders (IProgressStatus monitor, string folderToScan, StringCollection filesToIgnore)
+		internal void ScanFolders (IProgressStatus monitor, string folderToScan, ScanOptions context)
 		{
-			database.ScanFolders (monitor, currentDomain, folderToScan, filesToIgnore);
+			database.ScanFolders (monitor, currentDomain, folderToScan, context);
+		}
+		
+		internal void GenerateScanDataFilesInProcess (IProgressStatus monitor, string folderToScan, bool recursive)
+		{
+			database.GenerateScanDataFilesInProcess (monitor, folderToScan, recursive);
 		}
 		
 		internal void ParseAddin (IProgressStatus progressStatus, string file, string outFile)
@@ -717,8 +750,13 @@ namespace Mono.Addins
 			get { return databaseDir; }
 		}
 	
-		internal StringCollection GlobalAddinDirectories {
+		internal IEnumerable<string> GlobalAddinDirectories {
 			get { return addinDirs; }
+		}
+
+		internal void RegisterGlobalAddinDirectory (string dir)
+		{
+
 		}
 
 		internal string StartupDirectory {
@@ -734,7 +772,7 @@ namespace Mono.Addins
 			if (!Directory.Exists (database.HostsPath))
 				Directory.CreateDirectory (database.HostsPath);
 			
-			foreach (string s in Directory.GetFiles (database.HostsPath, baseName + "*.addins")) {
+			foreach (string s in Directory.EnumerateFiles (database.HostsPath, baseName + "*.addins")) {
 				try {
 					using (StreamReader sr = new StreamReader (s)) {
 						XmlTextReader tr = new XmlTextReader (sr);

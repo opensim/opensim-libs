@@ -1,0 +1,17 @@
+{
+    "tsaVersion": "TsaV2",
+    "codebase": "NewOrUpdate",
+    "codebaseName": "mono-addins_main",
+    "tsaStamp": "DevDiv",
+    "tsaEnvironment": "PROD",
+    "notificationAliases": [
+        "vsmac-engineering@microsoft.com"
+    ],
+    "codebaseAdmins": [
+        "REDMOND\\vsengxamarin"
+    ],
+    "instanceUrl": "https://devdiv.visualstudio.com",
+    "projectName": "DevDiv",
+    "areaPath": "DevDiv\\VS for Mac\\IDE Platform\\Extensibility",
+    "alltools": true
+}

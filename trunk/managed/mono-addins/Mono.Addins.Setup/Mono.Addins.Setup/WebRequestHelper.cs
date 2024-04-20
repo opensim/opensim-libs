@@ -37,6 +37,14 @@ namespace Mono.Addins.Setup
 	{
 		static Func<Func<HttpWebRequest>, Action<HttpWebRequest>,CancellationToken,HttpWebResponse> _handler;
 
+		static WebRequestHelper()
+		{
+			// Online certificate revocation check is not supported on Mono:
+			// https://github.com/mono/mono/blob/c5b88ec4f323f2bdb7c7d0a595ece28dae66579c/mcs/class/System/System.Net/ServicePointManager.cs#L197
+			// However on macOS Mono uses native APIs so a revoked certificate will have SslPolicyErrors.
+			ServicePointManager.CheckCertificateRevocationList = true;
+		}
+
 		/// <summary>
 		/// Sets a custom request handler that can handle requests for authenticated proxy servers.
 		/// </summary>
@@ -44,6 +52,10 @@ namespace Mono.Addins.Setup
 		public static void SetRequestHandler (Func<Func<HttpWebRequest>, Action<HttpWebRequest>,CancellationToken,HttpWebResponse> handler)
 		{
 			_handler = handler;
+		}
+
+		static internal bool HasCustomRequestHandler {
+			get { return _handler != null; }
 		}
 
 		/// <summary>

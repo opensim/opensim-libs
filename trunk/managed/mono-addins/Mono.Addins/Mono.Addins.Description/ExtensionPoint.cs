@@ -129,7 +129,7 @@ namespace Mono.Addins.Description
 		{
 			NodeSet.UnmergeExternalData (thisAddinId, addinsToUnmerge);
 			
-			ArrayList todel = new ArrayList ();
+			var todel = new List<ConditionTypeDescription> ();
 			foreach (ConditionTypeDescription cond in Conditions) {
 				if (cond.AddinId != thisAddinId && (addinsToUnmerge == null || addinsToUnmerge.Contains (cond.AddinId)))
 					todel.Add (cond);
@@ -303,11 +303,12 @@ namespace Mono.Addins.Description
 		/// </remarks>
 		public ExtensionNodeType AddExtensionNode (string name, string typeName)
 		{
-			ExtensionNodeType ntype = new ExtensionNodeType ();
+			ExtensionNodeType ntype = new ExtensionNodeType();
 			ntype.Id = name;
 			ntype.TypeName = typeName;
-			NodeSet.NodeTypes.Add (ntype);
+			NodeSet.NodeTypes.Add(ntype);
 			return ntype;
+
 		}
 
 		/// <summary>

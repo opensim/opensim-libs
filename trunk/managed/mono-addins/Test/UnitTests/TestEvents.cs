@@ -171,6 +171,7 @@ namespace UnitTests
 			// All addins are enabled
 			
 			Assert.AreEqual (4, AddinManager.GetExtensionNodes ("/SimpleApp/Writers").Count, "count 1");
+			AddinManager.GetExtensionNodes ("/SimpleApp/ItemTree");
 			
 			string[] addinExtensions = new string[] {
 				"/SimpleApp/Writers",
@@ -178,7 +179,7 @@ namespace UnitTests
 				"/SimpleApp.Core/TypeExtensions/SimpleApp.ISampleExtender",
 				"/SimpleApp.Core/TypeExtensions/SimpleApp.IWriterWithMetadata",
 				"/SimpleApp/NodesWithAttribute",
-				"/SimpleApp/DataExtensionWithAttribute",
+				"/SimpleApp/DataExtensionWithAttribute"
 			};
 
 			InitChangedExtensionEvent (addinExtensions);
@@ -209,7 +210,8 @@ namespace UnitTests
 			                           "/SimpleApp/NodeWithChildren",
 			                           "/SystemInformation/Modules",
 			                           "/SimpleApp/DefaultInsertAfter",
-			                           "/SimpleApp/DefaultInsertBefore");
+			                           "/SimpleApp/DefaultInsertBefore",
+									   "/SimpleApp/ItemTree");
 			notifyCount = addCount = removeCount = eventCount = 0;
 			AddinManager.Registry.DisableAddin ("SimpleApp.FileContentExtension,0.1.0");
 			
@@ -220,7 +222,7 @@ namespace UnitTests
 			Assert.AreEqual (1, notifyCount, "notifyCount 3");
 			Assert.AreEqual (0, addCount, "addCount 3");
 			Assert.AreEqual (1, removeCount, "removeCount 3");
-			Assert.AreEqual (6, eventCount, "eventCount 3");
+			Assert.AreEqual (7, eventCount, "eventCount 3");
 			
 			// Now unregister
 			
@@ -436,6 +438,130 @@ namespace UnitTests
 		void ExtensionListener_g (object s, ExtensionEventArgs args)
 		{
 			counters[0].Update (args);
+		}
+
+		[Test()]
+		public void TestUnloadedNode()
+		{
+			try
+			{
+                AddinManager.AddinLoadError += AddinManager_AddinLoadError;
+				Assert.AreEqual(4, AddinManager.GetExtensionNodes("/SimpleApp/Writers").Count, "count 1");
+				AddinManager.AddExtensionNodeHandler("/SimpleApp/Writers", OnExtensionChange2);
+				AddinManager.Registry.DisableAddin("SimpleApp.FileContentExtension,0.1.0");
+				Assert.AreEqual(3, AddinManager.GetExtensionNodes("/SimpleApp/Writers").Count, "count 2");
+			}
+			finally
+			{
+				AddinManager.RemoveExtensionNodeHandler("/SimpleApp/Writers", OnExtensionChange2);
+				AddinManager.AddinLoadError -= AddinManager_AddinLoadError;
+				AddinManager.Registry.EnableAddin("SimpleApp.FileContentExtension,0.1.0");
+			}
+		}
+
+        private void AddinManager_AddinLoadError (object sender, AddinErrorEventArgs args)
+        {
+			throw new Exception(args.Message);
+        }
+
+        void OnExtensionChange2(object s, ExtensionNodeEventArgs args)
+		{
+			if (args.Change == ExtensionChange.Add)
+			{
+				args.ExtensionNode.ExtensionNodeChanged += ExtensionNode_ExtensionNodeChanged;
+			}
+			else
+			{
+				args.ExtensionNode.ExtensionNodeChanged -= ExtensionNode_ExtensionNodeChanged;
+			}
+		}
+
+        private void ExtensionNode_ExtensionNodeChanged (object sender, ExtensionNodeEventArgs args)
+        {
+        }
+
+		[Test]
+		public void TestSubscriptionWithinHandler()
+		{
+			nestedEventSubscriptionSet = false;
+			nestedEventSubscriptionHandled = false;
+			try
+			{
+				AddinManager.AddExtensionNodeHandler("/SimpleApp/Writers", OnExtensionChange3);
+			}
+			finally
+			{
+				AddinManager.RemoveExtensionNodeHandler("/SimpleApp/Writers", OnExtensionChange3);
+				AddinManager.RemoveExtensionNodeHandler("/SystemInformation/Modules", OnExtensionChange4);
+			}
+		}
+
+		bool nestedEventSubscriptionSet;
+		bool nestedEventSubscriptionHandled;
+
+		void OnExtensionChange3(object s, ExtensionNodeEventArgs args)
+		{
+			if (args.Change == ExtensionChange.Add)
+			{
+				if (!nestedEventSubscriptionSet)
+				{
+					nestedEventSubscriptionSet = true;
+
+					// The OnExtensionChange4 handler should be invoked immediately for existing nodes. 
+					AddinManager.AddExtensionNodeHandler("/SystemInformation/Modules", OnExtensionChange4);
+					Assert.IsTrue(nestedEventSubscriptionHandled);
+				}
+			}
+		}
+
+		void OnExtensionChange4(object s, ExtensionNodeEventArgs args)
+		{
+			nestedEventSubscriptionHandled = true;
+		}
+
+		int conditionedWriterCount = 0;
+
+		[Test]
+		public void TestSubscriptionWithinHandler2()
+		{
+			try
+			{
+				AddinManager.GetExtensionNodes("/SimpleApp/ConditionedWriters");
+				nestedEventSubscriptionSet = false;
+				GlobalInfoCondition.Value = "";
+
+				AddinManager.ExtensionChanged += ExtensionChanged6;
+
+				AddinManager.Registry.DisableAddin("SimpleApp.FileContentExtension,0.1.0");
+
+				Assert.AreEqual(1, conditionedWriterCount);
+			}
+			finally
+			{
+				AddinManager.Registry.EnableAddin("SimpleApp.FileContentExtension,0.1.0");
+			}
+		}
+
+        private void ExtensionChanged6 (object sender, ExtensionEventArgs args)
+        {
+			if (nestedEventSubscriptionSet)
+				return;
+
+			nestedEventSubscriptionSet = true;
+
+			GlobalInfoCondition.Value = "foo";
+
+			nestedEventSubscriptionSet = true;
+			AddinManager.AddExtensionNodeHandler("/SimpleApp/ConditionedWriters", OnConditionedWritersChanged);
+			Assert.AreEqual(1, conditionedWriterCount);
+		}
+
+		void OnConditionedWritersChanged(object s, ExtensionNodeEventArgs args)
+		{
+			if (args.Change == ExtensionChange.Add)
+				conditionedWriterCount++;
+			else
+				conditionedWriterCount--;
 		}
 	}
 }

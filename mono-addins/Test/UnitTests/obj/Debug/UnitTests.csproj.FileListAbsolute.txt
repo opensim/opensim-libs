@@ -1,2 +1,0 @@
-D:\opensim\MonoAddins\mono-addins\Test\UnitTests\obj\Debug\UnitTests.csprojAssemblyReference.cache
-D:\opensim\MonoAddins\mono-addins\Test\UnitTests\obj\Debug\UnitTests.csproj.CoreCompileInputs.cache

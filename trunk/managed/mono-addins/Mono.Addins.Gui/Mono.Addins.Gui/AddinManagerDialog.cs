@@ -43,8 +43,8 @@ namespace Mono.Addins.Gui
 		AddinTreeWidget tree;
 		AddinTreeWidget galleryTree;
 		AddinTreeWidget updatesTree;
-		
-		SetupService service = new SetupService ();
+
+		SetupService service;
 		ListStore repoStore;
 		int lastRepoActive;
 		SearchEntry filterEntry;
@@ -66,8 +66,9 @@ namespace Mono.Addins.Gui
 			}
 		}
 		
-		public AddinManagerDialog (Window parent)
+		public AddinManagerDialog (Window parent, SetupService service)
 		{
+			this.service = service;
 			Build ();
 			TransientFor = parent;
 			HasSeparator = false;
@@ -106,8 +107,8 @@ namespace Mono.Addins.Gui
 			
 			// Make sure the tree has the focus when switching tabs
 			
-			vboxUpdates.FocusChain = new Widget [] { scrolledUpdates, eboxRepoUpdates };
-			vboxGallery.FocusChain = new Widget [] { scrolledGallery, eboxRepo };
+			vboxUpdates.FocusChain = new Widget [] { eboxRepoUpdates, scrolledUpdates };
+			vboxGallery.FocusChain = new Widget [] { eboxRepo, scrolledGallery };
 				
 			// Improve the look of the headers
 			
@@ -181,12 +182,6 @@ namespace Mono.Addins.Gui
 				galleryTreeView.ExpandAll ();
 			};
 			RepositionFilter ();
-		}
-
-		protected override void OnShown ()
-		{
-			base.OnShown ();
-			filterEntry.Parent = notebook;
 		}
 		
 		void RepositionFilter ()
@@ -536,7 +531,7 @@ namespace Mono.Addins.Gui
 				if (lastFolder != null)
 					dlg.SetCurrentFolder (lastFolder);
 				else
-					dlg.SetCurrentFolder (Environment.GetFolderPath (Environment.SpecialFolder.Personal));
+					dlg.SetCurrentFolder (Environment.GetFolderPath (Environment.SpecialFolder.UserProfile));
 				dlg.SelectMultiple = true;
 				
 				Gtk.FileFilter f = new Gtk.FileFilter ();

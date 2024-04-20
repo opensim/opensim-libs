@@ -119,7 +119,7 @@ namespace Mono.Addins.Description
 		bool HasProperty (string name);
 	}
 	
-	class AddinPropertyCollectionImpl: List<AddinProperty>, AddinPropertyCollection
+	public class AddinPropertyCollectionImpl: List<AddinProperty>, AddinPropertyCollection
 	{
 		AddinDescription desc;
 
@@ -146,7 +146,7 @@ namespace Mono.Addins.Description
 		{
 			locale = NormalizeLocale (locale);
 			string lang = GetLocaleLang (locale);
-			AddinProperty sameLangDifCountry = null;
+			AddinProperty sameLangDifCountryRegion = null;
 			AddinProperty sameLang = null;
 			AddinProperty defaultLoc = null;
 			
@@ -155,18 +155,18 @@ namespace Mono.Addins.Description
 					if (p.Locale == locale)
 						return ParseString (p.Value);
 					string plang = GetLocaleLang (p.Locale);
-					if (plang == p.Locale && plang == lang) // No country specified
+					if (plang == p.Locale && plang == lang) // No country/region specified
 						sameLang = p;
 					else if (plang == lang)
-						sameLangDifCountry = p;
+						sameLangDifCountryRegion = p;
 					else if (p.Locale == null)
 						defaultLoc = p;
 				}
 			}
 			if (sameLang != null)
 				return ParseString (sameLang.Value);
-			else if (sameLangDifCountry != null)
-				return ParseString (sameLangDifCountry.Value);
+			else if (sameLangDifCountryRegion != null)
+				return ParseString (sameLangDifCountryRegion.Value);
 			else if (defaultLoc != null)
 				return ParseString (defaultLoc.Value);
 			else
@@ -246,7 +246,11 @@ namespace Mono.Addins.Description
 		
 		public bool HasProperty (string name)
 		{
-			return this.Any (p => p.Name == name);
+			foreach (var p in this) {
+				if (p.Name == name)
+					return true;
+			}
+			return false;
 		}
 		
 		internal string ExtractCoreProperty (string name, bool removeProperty)

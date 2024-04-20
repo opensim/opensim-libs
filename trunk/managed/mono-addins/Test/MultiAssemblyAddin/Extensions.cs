@@ -28,7 +28,8 @@ using System;
 using UnitTests;
 using Mono.Addins;
 
-[assembly:Addin]
+[assembly:Addin ("MultiAssemblyAddin", Version="0.1.0")]
+[assembly:AddinLocalizer (typeof (SecondAssembly.CustomLocalizerFactory))]
 [assembly:AddinDependency ("SimpleApp.Core", "0.1.0")]
 
 [assembly:MultiAssemblyTestExtensionPoint ("main1")]

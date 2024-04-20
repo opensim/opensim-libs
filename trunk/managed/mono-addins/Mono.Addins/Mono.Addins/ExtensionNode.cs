@@ -33,6 +33,8 @@ using System.Collections.Generic;
 using System.Xml;
 using System.Reflection;
 using Mono.Addins.Description;
+using System.Threading;
+using System.Linq;
 
 namespace Mono.Addins
 {
@@ -59,7 +61,8 @@ namespace Mono.Addins
 		ModuleDescription module;
 		AddinEngine addinEngine;
 		event ExtensionNodeEventHandler extensionNodeChanged;
-		
+		internal readonly object localLock = new object ();
+
 		/// <summary>
 		/// Identifier of the node.
 		/// </summary>
@@ -118,11 +121,19 @@ namespace Mono.Addins
 		
 		internal void SetTreeNode (TreeNode node)
 		{
+			// treeNode can only be set once (it's set during the node initialization)
+			if (treeNode != null)
+				throw new InvalidOperationException ();
+
 			treeNode = node;
 		}
 		
 		internal void SetData (AddinEngine addinEngine, string plugid, ExtensionNodeType nodeType, ModuleDescription module)
 		{
+			// SetData can only be called once (it's set during the node initialization)
+			if (this.addinEngine != null)
+				throw new InvalidOperationException ();
+
 			this.addinEngine = addinEngine;
 			this.addinId = plugid;
 			this.nodeType = nodeType;
@@ -146,10 +157,8 @@ namespace Mono.Addins
 		public RuntimeAddin Addin {
 			get {
 				if (addin == null && addinId != null) {
-					if (!addinEngine.IsAddinLoaded (addinId))
-						addinEngine.LoadAddin (null, addinId, true);
-					addin = addinEngine.GetAddin (addinId);
-					if (addin != null)
+					addin = addinEngine.GetOrLoadAddin(addinId, true);
+					if (addin != null && module != null)
 						addin = addin.GetModule (module);
 				}
 				if (addin == null)
@@ -157,73 +166,119 @@ namespace Mono.Addins
 				return addin; 
 			}
 		}
-		
+
 		/// <summary>
 		/// Notifies that a child node of this node has been added or removed.
 		/// </summary>
 		/// <remarks>
 		/// The first time the event is subscribed, the handler will be called for each existing node.
+		/// 
+		/// Threading information: the thread on which the event is raised is undefined. Events are
+		/// guaranteed to be raised sequentially for a given extension context.
 		/// </remarks>
 		public event ExtensionNodeEventHandler ExtensionNodeChanged {
-			add {
-				extensionNodeChanged += value;
-				foreach (ExtensionNode node in ChildNodes) {
-					try {
-						value (this, new ExtensionNodeEventArgs (ExtensionChange.Add, node));
-					} catch (Exception ex) {
-						addinEngine.ReportError (null, node.Addin != null ? node.Addin.Id : null, ex, false);
+			add
+			{
+				ExtensionNodeList children;
+				bool frozen = false;
+
+				try
+				{
+					lock (localLock)
+					{
+						// The invocation here needs to be done right to make sure there are no duplicate or missing events.
+
+						// 1) Get the list of current nodes and store it in a variable. This is the list of nodes for which
+						// notifications will initially be sent. We hold the node lock to prevent node changes during
+						// the event subscription.
+
+						children = GetChildNodes();
+
+						// 2) Subscribe the real event, but do it through the notification queue. Doing it through the queue
+						// is important since then the event will be subscribed once all currently queued events are dispatched.
+						//
+						// An example: let's say a new child is added to this node, but the event queue was frozen so the
+						// Child Added event is still in the queue. Then the ExtensionNodeChanged event is subscribed for
+						// the parent. In this case the GetChildNodes() call above will contain the new child (because it
+						// has already been added), so the handler will be invoked for that node. Child Added event that's
+						// in the queue should be ignored for this handler, since it has already been raised when subscribing.
+						//
+						// To solve this problem, we do the event subscription through the event queue. In this way,
+						// the actual subscription won't be done until the current queue is flushed, so the handler will
+						// only be called for any event that was queued just after the GetChildNodes() call.
+
+						// Freeze the queue here since we don't want callbacks to be invoked while holding the node lock.
+
+						addinEngine.NotificationQueue.Freeze();
+						frozen = true;
+
+						addinEngine.NotificationQueue.Invoke(() =>
+						{
+							extensionNodeChanged += value;
+						},
+						this);
+					}
+
+					// 3) Send the notifications for the event. Again, any change done after the above GetChildNodes
+					// call will have queued a notification.
+
+					foreach (ExtensionNode node in children)
+					{
+						var theNode = node;
+						value(this, new ExtensionNodeEventArgs(ExtensionChange.Add, theNode));
+					}
+				}
+				finally
+				{
+					// 4) We are done notifying the pre-existing nodes. If there was any further change in the children
+					// list, the corresponding events will be raised after unfreezing.
+
+					if (frozen)
+					{
+						addinEngine.NotificationQueue.Unfreeze();
 					}
 				}
 			}
 			remove {
-				extensionNodeChanged -= value;
+				addinEngine.InvokeCallback(() =>
+				{
+					// This is done inside a InvokeCallback call for simetry with the 'add' block. Since the 'add'
+					// block runs on a callback that can be queued, doing the same here ensures that the unsubscription
+					// will always happen after the subscription
+					extensionNodeChanged -= value;
+				}, this);
 			}
 		}
-		
+
 		/// <summary>
 		/// Child nodes of this extension node.
 		/// </summary>
-		public ExtensionNodeList ChildNodes {
-			get {
-				if (childrenLoaded)
-					return childNodes;
-				
-				try {
-					if (treeNode.Children.Count == 0) {
-						childNodes = ExtensionNodeList.Empty;
-						return childNodes;
-					}
-				}
-				catch (Exception ex) {
-					addinEngine.ReportError (null, null, ex, false);
-					childNodes = ExtensionNodeList.Empty;
-					return childNodes;
-				} finally {
-					childrenLoaded = true;
-				}
+		[Obsolete("Use GetChildNodes()")]
+		public ExtensionNodeList ChildNodes => GetChildNodes();
 
-				List<ExtensionNode> list = new List<ExtensionNode> ();
-				foreach (TreeNode cn in treeNode.Children) {
-					
-					// For each node check if it is visible for the current context.
-					// If something fails while evaluating the condition, just ignore the node.
-					
-					try {
-						if (cn.ExtensionNode != null && cn.IsEnabled)
-							list.Add (cn.ExtensionNode);
-					} catch (Exception ex) {
-						addinEngine.ReportError (null, null, ex, false);
+		/// <summary>
+		/// Child nodes of this extension node.
+		/// 
+		/// Threading information: the returned list is an snapshot of the current children list. The returned
+		/// list will not change if this node's children change as result of add-ins loading or conditions changing.
+		/// Successive calls to this method can return different list instances.
+		/// </summary>
+		public ExtensionNodeList GetChildNodes()
+		{
+			if (!childrenLoaded)
+			{
+				lock (localLock)
+				{
+					if (!childrenLoaded)
+					{
+						childNodes = CreateChildrenList();
+						childrenLoaded = true;
 					}
 				}
-				if (list.Count > 0)
-					childNodes = new ExtensionNodeList (list);
-				else
-					childNodes = ExtensionNodeList.Empty;
-			
-				return childNodes;
 			}
+			return childNodes;
 		}
-		
+
 		/// <summary>
 		/// Returns the child objects of a node.
 		/// </summary>
@@ -342,10 +397,14 @@ namespace Mono.Addins
 		
 		Array GetChildObjectsInternal (Type arrayElementType, bool reuseCachedInstance)
 		{
-			ArrayList list = new ArrayList (ChildNodes.Count);
+			// The ChildNodes collection can't change, but it can be replaced by another collection,
+			// so we keep a local reference, which won't change
+			var children = GetChildNodes();
+
+			ArrayList list = new ArrayList (children.Count);
 			
-			for (int n=0; n<ChildNodes.Count; n++) {
-				InstanceExtensionNode node = ChildNodes [n] as InstanceExtensionNode;
+			for (int n=0; n<children.Count; n++) {
+				var node = children [n] as InstanceExtensionNode;
 				if (node == null) {
 					addinEngine.ReportError ("Error while getting object for node in path '" + Path + "'. Extension node is not a subclass of InstanceExtensionNode.", null, null, false);
 					continue;
@@ -412,7 +471,7 @@ namespace Mono.Addins
 
 				if (memberType == typeof(string)) {
 					if (f.Localizable)
-						val = Addin.Localizer.GetString (at.value);
+						val = GetAddinLocalizer ().GetString (at.value);
 					else
 						val = at.value;
 				}
@@ -449,79 +508,196 @@ namespace Mono.Addins
 				}
 			}
 		}
-		
+
+		/// <summary>
+		/// Tries to avoid loading the addin dependencies when getting the localizer.
+		/// </summary>
+		AddinLocalizer GetAddinLocalizer ()
+		{
+			if (addin != null || addinId == null)
+				return Addin.Localizer;
+
+			Addin foundAddin = addinEngine.Registry.GetAddin (addinId);
+			if (foundAddin == null || foundAddin.Description.Localizer != null)
+				return Addin.Localizer;
+
+			return addinEngine.DefaultLocalizer;
+		}
+
+		ExtensionNodeList CreateChildrenList ()
+		{
+			var nodeChildren = treeNode.Children;
+
+			try {
+				if (nodeChildren.Count == 0) {
+					return ExtensionNodeList.Empty;
+				}
+			} catch (Exception ex) {
+				addinEngine.ReportError (null, null, ex, false);
+				return ExtensionNodeList.Empty;
+			}
+
+			List<ExtensionNode> list = new List<ExtensionNode> (nodeChildren.Count);
+			foreach (TreeNode cn in nodeChildren) {
+
+				// For each node check if it is visible for the current context.
+				// If something fails while evaluating the condition, just ignore the node.
+
+				try {
+					if (cn.IsEnabled && cn.HasExtensionNode)
+						list.Add (cn.ExtensionNode);
+				} catch (Exception ex) {
+					addinEngine.ReportError (null, null, ex, false);
+				}
+			}
+
+			if (list.Count > 0)
+				return new ExtensionNodeList (list);
+			else
+				return ExtensionNodeList.Empty;
+		}
+
 		internal bool NotifyChildChanged ()
 		{
+			// If children are not loaded, there isn't anything to update
 			if (!childrenLoaded)
 				return false;
 
-			ExtensionNodeList oldList = childNodes;
-			childrenLoaded = false;
-			
-			bool changed = false;
-			
-			foreach (ExtensionNode nod in oldList) {
-				if (ChildNodes [nod.Id] == null) {
-					changed = true;
-					OnChildNodeRemoved (nod);
+			List<(ExtensionNode Node, bool Added)> changes = null;
+
+			lock (localLock) {
+				var oldList = childNodes;
+				var newList = CreateChildrenList ();
+				childNodes = newList;
+
+				// Compare old list and new list to find out which nodes have
+				// been added or removed, since the changes need to be notified.
+
+				foreach (ExtensionNode nod in oldList) {
+					if (newList [nod.Id] == null) {
+						if (changes == null)
+							changes = new ();
+						changes.Add ((nod, false));
+					}
+				}
+				foreach (ExtensionNode nod in newList) {
+					if (oldList [nod.Id] == null) {
+						if (changes == null)
+							changes = new ();
+						changes.Add ((nod, true));
+					}
 				}
 			}
-			foreach (ExtensionNode nod in ChildNodes) {
-				if (oldList [nod.Id] == null) {
-					changed = true;
-					OnChildNodeAdded (nod);
+
+			// Notify the changes outside the lock
+
+			if (changes != null) {
+				foreach (var change in changes) {
+					var node = change.Node;
+					if (change.Added)
+					{
+						addinEngine.InvokeCallback(() =>
+						{
+							OnChildNodeAdded(node);
+						}, this);
+					}
+					else
+					{
+						addinEngine.InvokeCallback(() =>
+						{
+							OnChildNodeRemoved(node);
+						}, this);
+					}
 				}
-			}
-			if (changed)
-				OnChildrenChanged ();
-			return changed;
+				addinEngine.InvokeCallback(OnChildrenChanged, this);
+				return true;
+			} else
+				return false;
 		}
-		
+
+		internal void NotifyAddinLoaded()
+		{
+			addinEngine.InvokeCallback(OnAddinLoaded, this);
+		}
+
+		internal void NotifyAddinUnloaded()
+		{
+			addinEngine.InvokeCallback(OnAddinUnloaded, this);
+		}
+
 		/// <summary>
 		/// Called when the add-in that defined this extension node is actually loaded in memory.
 		/// </summary>
-		internal protected virtual void OnAddinLoaded ()
+		/// <remarks>
+		/// Threading information: the thread on which the method is invoked is undefined.
+		/// Invocations to the virtual methods in this class are guaranteed to be done sequentially.
+		/// For example, OnAddinLoaded will always be called before OnAddinUnloaded, and never
+		/// concurrently.
+		/// </remarks>
+		protected virtual void OnAddinLoaded ()
 		{
 		}
-		
+
 		/// <summary>
 		/// Called when the add-in that defined this extension node is being
 		/// unloaded from memory.
 		/// </summary>
-		internal protected virtual void OnAddinUnloaded ()
+		/// <remarks>
+		/// Threading information: the thread on which the method is invoked is undefined.
+		/// Invocations to the virtual methods in this class are guaranteed to be done sequentially.
+		/// For example, OnAddinLoaded will always be called before OnAddinUnloaded, and never
+		/// concurrently.
+		/// </remarks>
+		protected virtual void OnAddinUnloaded ()
 		{
 		}
-		
+
 		/// <summary>
 		/// Called when the children list of this node has changed. It may be due to add-ins
 		/// being loaded/unloaded, or to conditions being changed.
 		/// </summary>
+		/// <remarks>
+		/// Threading information: the thread on which the method is invoked is undefined.
+		/// Invocations to the virtual methods in this class are guaranteed to be done sequentially.
+		/// For example, OnChildNodeAdded will always be called before OnChildNodeRemoved for a given
+		/// child, and never concurrently.
+		/// </remarks>
 		protected virtual void OnChildrenChanged ()
 		{
 		}
-		
+
 		/// <summary>
 		/// Called when a child node is added
 		/// </summary>
 		/// <param name="node">
 		/// Added node.
 		/// </param>
+		/// <remarks>
+		/// Threading information: the thread on which the method is invoked is undefined.
+		/// Invocations to the virtual methods in this class are guaranteed to be done sequentially.
+		/// For example, OnChildNodeAdded will always be called before OnChildNodeRemoved for a given
+		/// child, and never concurrently.
+		/// </remarks>
 		protected virtual void OnChildNodeAdded (ExtensionNode node)
 		{
-			if (extensionNodeChanged != null)
-				extensionNodeChanged (this, new ExtensionNodeEventArgs (ExtensionChange.Add, node));
+			extensionNodeChanged?.Invoke (this, new ExtensionNodeEventArgs (ExtensionChange.Add, node));
 		}
-		
+
 		/// <summary>
 		/// Called when a child node is removed
 		/// </summary>
 		/// <param name="node">
 		/// Removed node.
 		/// </param>
+		/// <remarks>
+		/// Threading information: the thread on which the method is invoked is undefined.
+		/// Invocations to the virtual methods in this class are guaranteed to be done sequentially.
+		/// For example, OnChildNodeAdded will always be called before OnChildNodeRemoved for a given
+		/// child, and never concurrently.
+		/// </remarks>
 		protected virtual void OnChildNodeRemoved (ExtensionNode node)
 		{
-			if (extensionNodeChanged != null)
-				extensionNodeChanged (this, new ExtensionNodeEventArgs (ExtensionChange.Remove, node));
+			extensionNodeChanged?.Invoke (this, new ExtensionNodeEventArgs (ExtensionChange.Remove, node));
 		}
 	}
 	

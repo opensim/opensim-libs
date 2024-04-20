@@ -31,6 +31,7 @@ using System;
 using System.Xml;
 using Mono.Addins.Description;
 using System.Collections;
+using System.Collections.Generic;
 
 namespace Mono.Addins
 {
@@ -95,7 +96,7 @@ namespace Mono.Addins
 			return parent == null || parent.Evaluate (ctx);
 		}
 		
-		internal virtual void GetConditionTypes (ArrayList listToFill)
+		internal virtual void GetConditionTypes (List<string> listToFill)
 		{
 		}
 	}
@@ -131,7 +132,7 @@ namespace Mono.Addins
 			return false;
 		}
 		
-		internal override void GetConditionTypes (ArrayList listToFill)
+		internal override void GetConditionTypes (List<string> listToFill)
 		{
 			foreach (BaseCondition cond in conditions)
 				cond.GetConditionTypes (listToFill);
@@ -157,7 +158,7 @@ namespace Mono.Addins
 			return true;
 		}
 		
-		internal override void GetConditionTypes (ArrayList listToFill)
+		internal override void GetConditionTypes (List<string> listToFill)
 		{
 			foreach (BaseCondition cond in conditions)
 				cond.GetConditionTypes (listToFill);
@@ -178,7 +179,7 @@ namespace Mono.Addins
 			return !baseCond.Evaluate (ctx);
 		}
 		
-		internal override void GetConditionTypes (System.Collections.ArrayList listToFill)
+		internal override void GetConditionTypes (List<string> listToFill)
 		{
 			baseCond.GetConditionTypes (listToFill);
 		}
@@ -209,13 +210,16 @@ namespace Mono.Addins
 
 			if (!string.IsNullOrEmpty (addin)) {
 				// Make sure the add-in that implements the condition is loaded
-				addinEngine.LoadAddin (null, addin, true);
+				using var tr = addinEngine.BeginEngineTransaction();
+				addinEngine.LoadAddin (tr, null, addin, true);
 				addin = null; // Don't try again
 			}
 			
 			ConditionType type = ctx.GetCondition (typeId);
+
 			if (type == null) {
-				addinEngine.ReportError ("Condition '" + typeId + "' not found in current extension context.", null, null, false);
+				var parts = string.Join(", ", Array.ConvertAll(node.Attributes, attr => attr.Name + "=" + attr.Value));
+				addinEngine.ReportError ("Condition '" + typeId + "' not found in current extension context. [" + parts + "]", node.ParentAddinDescription.AddinId, null, false);
 				return false;
 			}
 			
@@ -223,12 +227,12 @@ namespace Mono.Addins
 				return type.Evaluate (node);
 			}
 			catch (Exception ex) {
-				addinEngine.ReportError ("Error while evaluating condition '" + typeId + "'", null, ex, false);
+				addinEngine.ReportError ("Error while evaluating condition '" + typeId + "'", node.ParentAddinDescription.AddinId, ex, false);
 				return false;
 			}
 		}
 		
-		internal override void GetConditionTypes (ArrayList listToFill)
+		internal override void GetConditionTypes (List<string> listToFill)
 		{
 			listToFill.Add (typeId);
 		}

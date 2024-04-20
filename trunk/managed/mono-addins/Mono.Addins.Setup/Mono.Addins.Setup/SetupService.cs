@@ -58,9 +58,9 @@ namespace Mono.Addins.Setup
 		AddinStore store;
 		AddinSystemConfiguration config;
 		const string addinFilesDir = "_addin_files";
-		
+
 		AddinRegistry registry;
-		
+
 		/// <summary>
 		/// Initializes a new instance
 		/// </summary>
@@ -74,11 +74,12 @@ namespace Mono.Addins.Setup
 				registry = AddinManager.Registry;
 			else
 				registry = AddinRegistry.GetGlobalRegistry ();
-			
+
 			repositories = new RepositoryRegistry (this);
 			store = new AddinStore (this);
+			AddAddinRepositoryProvider ("MonoAddins", new MonoAddinsRepositoryProvider (this));
 		}
-		
+
 		/// <summary>
 		/// Initializes a new instance
 		/// </summary>
@@ -90,23 +91,31 @@ namespace Mono.Addins.Setup
 			this.registry = registry;
 			repositories = new RepositoryRegistry (this);
 			store = new AddinStore (this);
+			AddAddinRepositoryProvider ("MonoAddins", new MonoAddinsRepositoryProvider (this));
 		}
-		
+
 		/// <summary>
 		/// The add-in registry being managed
 		/// </summary>
 		public AddinRegistry Registry {
 			get { return registry; }
 		}
-		
+
 		internal string RepositoryCachePath {
 			get { return Path.Combine (registry.RegistryPath, "repository-cache"); }
 		}
-		
+
 		string RootConfigFile {
+			get { return Path.Combine (registry.RegistryPath, "addins-setup-v2.config"); }
+		}
+
+		/// <summary>
+		/// This should only be used for migration purposes
+		/// </summary>
+		string RootConfigFileOld {
 			get { return Path.Combine (registry.RegistryPath, "addins-setup.config"); }
 		}
-		
+
 		/// <summary>
 		/// Default add-in namespace of the application (optional). If set, only add-ins that belong to that namespace
 		/// will be shown in add-in lists.
@@ -115,7 +124,7 @@ namespace Mono.Addins.Setup
 			get { return applicationNamespace; }
 			set { applicationNamespace = value; }
 		}
-		
+
 		/// <summary>
 		/// Directory where to install add-ins. If not specified, the 'addins' subdirectory of the
 		/// registry location is used.
@@ -129,18 +138,18 @@ namespace Mono.Addins.Setup
 			}
 			set { installDirectory = value; }
 		}
-		
+
 		/// <summary>
 		/// Returns a RepositoryRegistry which can be used to manage on-line repository references
 		/// </summary>
 		public RepositoryRegistry Repositories {
 			get { return repositories; }
 		}
-		
+
 		internal AddinStore Store {
 			get { return store; }
 		}
-		
+
 		/// <summary>
 		/// Resolves add-in dependencies.
 		/// </summary>
@@ -168,11 +177,11 @@ namespace Mono.Addins.Setup
 		/// add-in, and all packages that provide the add-in dependencies. In some cases, packages may need to
 		/// be installed (for example, when an installed add-in needs to be upgraded).
 		/// </remarks>
-		public bool ResolveDependencies (IProgressStatus statusMonitor, AddinRepositoryEntry[] addins, out PackageCollection resolved, out PackageCollection toUninstall, out DependencyCollection unresolved)
+		public bool ResolveDependencies (IProgressStatus statusMonitor, AddinRepositoryEntry [] addins, out PackageCollection resolved, out PackageCollection toUninstall, out DependencyCollection unresolved)
 		{
 			return store.ResolveDependencies (statusMonitor, addins, out resolved, out toUninstall, out unresolved);
 		}
-		
+
 		/// <summary>
 		/// Resolves add-in dependencies.
 		/// </summary>
@@ -204,7 +213,7 @@ namespace Mono.Addins.Setup
 		{
 			return store.ResolveDependencies (statusMonitor, packages, out toUninstall, out unresolved);
 		}
-		
+
 		/// <summary>
 		/// Installs add-in packages
 		/// </summary>
@@ -217,11 +226,11 @@ namespace Mono.Addins.Setup
 		/// <returns>
 		/// True if the installation succeeded
 		/// </returns>
-		public bool Install (IProgressStatus statusMonitor, params string[] files)
+		public bool Install (IProgressStatus statusMonitor, params string [] files)
 		{
 			return store.Install (statusMonitor, files);
 		}
-		
+
 		/// <summary>
 		/// Installs add-in packages from on-line repositories
 		/// </summary>
@@ -234,11 +243,11 @@ namespace Mono.Addins.Setup
 		/// <returns>
 		/// True if the installation succeeded
 		/// </returns>
-		public bool Install (IProgressStatus statusMonitor, params AddinRepositoryEntry[] addins)
+		public bool Install (IProgressStatus statusMonitor, params AddinRepositoryEntry [] addins)
 		{
 			return store.Install (statusMonitor, addins);
 		}
-		
+
 		/// <summary>
 		/// Installs add-in packages
 		/// </summary>
@@ -255,7 +264,7 @@ namespace Mono.Addins.Setup
 		{
 			return store.Install (statusMonitor, packages);
 		}
-		
+
 		/// <summary>
 		/// Uninstalls an add-in.
 		/// </summary>
@@ -269,7 +278,7 @@ namespace Mono.Addins.Setup
 		{
 			store.Uninstall (statusMonitor, id);
 		}
-		
+
 		/// <summary>
 		/// Uninstalls a set of add-ins
 		/// </summary>
@@ -283,7 +292,7 @@ namespace Mono.Addins.Setup
 		{
 			store.Uninstall (statusMonitor, ids);
 		}
-		
+
 		/// <summary>
 		/// Gets information about an add-in
 		/// </summary>
@@ -297,7 +306,34 @@ namespace Mono.Addins.Setup
 		{
 			return AddinInfo.ReadFromDescription (addin.Description);
 		}
-		
+
+		public static AddinHeader ReadAddinHeader (string mpack)
+		{
+			return AddinPackage.ReadAddinInfo(mpack);
+		}
+
+		Dictionary<string, AddinRepositoryProvider> providersList = new Dictionary<string, AddinRepositoryProvider> ();
+
+		public AddinRepositoryProvider GetAddinRepositoryProvider (string providerId)
+		{
+
+			if (string.IsNullOrEmpty (providerId))
+				providerId = "MonoAddins";
+			if (providersList.TryGetValue (providerId, out var addinRepositoryProvider))
+				return addinRepositoryProvider;
+			throw new KeyNotFoundException (providerId);
+		}
+
+		public void AddAddinRepositoryProvider (string providerId, AddinRepositoryProvider provider)
+		{
+			providersList [providerId] = provider;
+		}
+
+		public void RemoveAddinRepositoryProvider (string providerId)
+		{
+			providersList.Remove (providerId);
+		}
+
 		/// <summary>
 		/// Gets a list of add-ins which depend on an add-in
 		/// </summary>
@@ -314,11 +350,11 @@ namespace Mono.Addins.Setup
 		/// This methods returns a list of add-ins which have the add-in identified by 'id' as a direct
 		/// (or indirect if recursive=True) dependency.
 		/// </remarks>
-		public Addin[] GetDependentAddins (string id, bool recursive)
+		public Addin [] GetDependentAddins (string id, bool recursive)
 		{
 			return store.GetDependentAddins (id, recursive);
 		}
-		
+
 		/// <summary>
 		/// Packages an add-in
 		/// </summary>
@@ -337,7 +373,7 @@ namespace Mono.Addins.Setup
 		/// repository. The package will include the main assembly or manifest of the add-in and any external
 		/// file declared in the add-in metadata.
 		/// </remarks>
-		public string[] BuildPackage (IProgressStatus statusMonitor, string targetDirectory, params string[] filePaths)
+		public string [] BuildPackage (IProgressStatus statusMonitor, string targetDirectory, params string [] filePaths)
 		{
 			return BuildPackage (statusMonitor, false, targetDirectory, filePaths);
 		}
@@ -363,63 +399,125 @@ namespace Mono.Addins.Setup
 		/// repository. The package will include the main assembly or manifest of the add-in and any external
 		/// file declared in the add-in metadata.
 		/// </remarks>
-		public string[] BuildPackage (IProgressStatus statusMonitor, bool debugSymbols, string targetDirectory, params string[] filePaths)
+		public string [] BuildPackage (IProgressStatus statusMonitor, bool debugSymbols, string targetDirectory, params string [] filePaths)
 		{
 			List<string> outFiles = new List<string> ();
 			foreach (string file in filePaths) {
-				string f = BuildPackageInternal (statusMonitor, debugSymbols, targetDirectory, file);
+				string f = BuildPackageInternal (statusMonitor, debugSymbols, targetDirectory, file, PackageFormat.Mpack);
 				if (f != null)
 					outFiles.Add (f);
 			}
 			return outFiles.ToArray ();
 		}
-		
-		string BuildPackageInternal (IProgressStatus monitor, bool debugSymbols, string targetDirectory, string filePath)
+
+		/// <summary>
+		/// Packages an add-in
+		/// </summary>
+		/// <param name="statusMonitor">
+		/// Progress monitor where to show progress status
+		/// </param>
+		/// <param name="debugSymbols">
+		/// True if debug symbols (.pdb or .mdb) should be included in the package, if they exist
+		/// </param>
+		/// <param name="targetDirectory">
+		/// Directory where to generate the package
+		/// </param>
+		/// <param name="format">
+		/// Which format to produce .mpack or .vsix
+		/// </param>
+		/// <param name="filePaths">
+		/// Paths to the add-ins to be packaged. Paths can be either the main assembly of an add-in, or an add-in
+		/// manifest (.addin or .addin.xml).
+		/// </param>
+		/// <remarks>
+		/// This method can be used to create a package for an add-in, which can then be pushed to an on-line
+		/// repository. The package will include the main assembly or manifest of the add-in and any external
+		/// file declared in the add-in metadata.
+		/// </remarks>
+		public string [] BuildPackage (IProgressStatus statusMonitor, bool debugSymbols, string targetDirectory, PackageFormat format, params string [] filePaths)
+		{
+			List<string> outFiles = new List<string> ();
+			foreach (string file in filePaths) {
+				string f = BuildPackageInternal (statusMonitor, debugSymbols, targetDirectory, file, format);
+				if (f != null)
+					outFiles.Add (f);
+			}
+			return outFiles.ToArray ();
+		}
+
+		string BuildPackageInternal (IProgressStatus monitor, bool debugSymbols, string targetDirectory, string filePath, PackageFormat format)
 		{
 			AddinDescription conf = registry.GetAddinDescription (monitor, filePath);
 			if (conf == null) {
 				monitor.ReportError ("Could not read add-in file: " + filePath, null);
 				return null;
 			}
-			
+
 			string basePath = Path.GetDirectoryName (Path.GetFullPath (filePath));
-			
+
 			if (targetDirectory == null)
 				targetDirectory = basePath;
 
 			// Generate the file name
-			
-			string name;
+
+			string localId;
 			if (conf.LocalId.Length == 0)
-				name = Path.GetFileNameWithoutExtension (filePath);
+				localId = Path.GetFileNameWithoutExtension (filePath);
 			else
-				name = conf.LocalId;
-			name = Addin.GetFullId (conf.Namespace, name, conf.Version);
-			name = name.Replace (',','_').Replace (".__", ".");
-			
-			string outFilePath = Path.Combine (targetDirectory, name) + ".mpack";
-			
+				localId = conf.LocalId;
+
+			string ext;
+			var name = Addin.GetFullId (conf.Namespace, localId, null);
+			string version = conf.Version;
+
+			switch (format) {
+			case PackageFormat.Mpack:
+				ext = ".mpack";
+				break;
+			case PackageFormat.Vsix:
+				ext = ".vsix";
+				break;
+			case PackageFormat.NuGet:
+				ext = ".nupkg";
+				if (string.IsNullOrEmpty (version)) {
+					monitor.ReportError ("Add-in doesn't have a version", null);
+					return null;
+				}
+				version = GetNuGetVersion (version);
+				break;
+			default:
+				throw new NotSupportedException (format.ToString ());
+			}
+
+			string outFilePath = Path.Combine (targetDirectory, name);
+			if (!string.IsNullOrEmpty (version))
+				outFilePath += "." + version;
+			outFilePath += ext;
+
 			ZipOutputStream s = new ZipOutputStream (File.Create (outFilePath));
-			s.SetLevel(5);
-			
+			s.SetLevel (5);
+
+			if (format == PackageFormat.Vsix) {
+				XmlDocument doc = new XmlDocument ();
+				doc.PreserveWhitespace = false;
+				doc.LoadXml (conf.SaveToVsixXml ().OuterXml);
+				AddXmlFile (s, doc, "extension.vsixmanifest");
+			}
+
+			if (format == PackageFormat.NuGet) {
+				var doc = GenerateNuspec (conf);
+				AddXmlFile (s, doc, Addin.GetIdName (conf.AddinId).ToLower () + ".nuspec");
+			}
+
 			// Generate a stripped down description of the add-in in a file, since the complete
 			// description may be declared as assembly attributes
-			
-			XmlDocument doc = new XmlDocument ();
-			doc.PreserveWhitespace = false;
-			doc.LoadXml (conf.SaveToXml ().OuterXml);
-			CleanDescription (doc.DocumentElement);
-			MemoryStream ms = new MemoryStream ();
-			XmlTextWriter tw = new XmlTextWriter (ms, System.Text.Encoding.UTF8);
-			tw.Formatting = Formatting.Indented;
-			doc.WriteTo (tw);
-			tw.Flush ();
-			byte[] data = ms.ToArray ();
 
-			var infoEntry = new ZipEntry ("addin.info") { Size = data.Length };
-			s.PutNextEntry (infoEntry);
-			s.Write (data, 0, data.Length);
-			s.CloseEntry ();
+			XmlDocument infoDoc = new XmlDocument ();
+			infoDoc.PreserveWhitespace = false;
+			infoDoc.LoadXml (conf.SaveToXml ().OuterXml);
+			CleanDescription (infoDoc.DocumentElement);
+
+			AddXmlFile (s, infoDoc, "addin.info");
 
 			// Now add the add-in files
 
@@ -437,7 +535,7 @@ namespace Mono.Addins.Setup
 						files.Add (file + ".mdb");
 				}
 			}
-			
+
 			foreach (var prop in conf.Properties) {
 				try {
 					var file = Util.NormalizePath (prop.Value);
@@ -457,26 +555,153 @@ namespace Mono.Addins.Setup
 					files.Add (relativeSatellite);
 				}
 			}
-			
+
 			monitor.Log ("Creating package " + Path.GetFileName (outFilePath));
-			
+
 			foreach (string file in files) {
 				string fp = Path.Combine (basePath, file);
 				using (FileStream fs = File.OpenRead (fp)) {
-					byte[] buffer = new byte [fs.Length];
+					byte [] buffer = new byte [fs.Length];
 					fs.Read (buffer, 0, buffer.Length);
 
-					var fileName = Path.PathSeparator == '\\' ? file.Replace ('\\', '/') : file;
+					var fileName = Path.DirectorySeparatorChar == '\\' ? file.Replace ('\\', '/') : file;
+					if (format == PackageFormat.NuGet)
+						fileName = Path.Combine ("addin", fileName);
 					var entry = new ZipEntry (fileName) { Size = fs.Length };
 					s.PutNextEntry (entry);
 					s.Write (buffer, 0, buffer.Length);
 					s.CloseEntry ();
 				}
 			}
-			
-			s.Finish();
-			s.Close();		
+
+			if (format == PackageFormat.Vsix) {
+				files.Add ("addin.info");
+				files.Add ("extension.vsixmanifest");
+				XmlDocument doc = new XmlDocument ();
+				doc.PreserveWhitespace = false;
+				XmlDeclaration xmlDeclaration = doc.CreateXmlDeclaration ("1.0", "UTF-8", null);
+				XmlElement root = doc.DocumentElement;
+				doc.InsertBefore (xmlDeclaration, root);
+				HashSet<string> alreadyAddedExtensions = new HashSet<string> ();
+				var typesEl = doc.CreateElement ("Types");
+				typesEl.SetAttribute ("xmlns", "http://schemas.openxmlformats.org/package/2006/content-types");
+				foreach (var file in files) {
+					var extension = Path.GetExtension (file);
+					if (string.IsNullOrEmpty (extension))
+						continue;
+					if (extension.StartsWith (".", StringComparison.Ordinal))
+						extension = extension.Substring (1);
+					if (alreadyAddedExtensions.Contains (extension))
+						continue;
+					alreadyAddedExtensions.Add (extension);
+					var typeEl = doc.CreateElement ("Default");
+					typeEl.SetAttribute ("Extension", extension);
+					typeEl.SetAttribute ("ContentType", GetContentType (extension));
+					typesEl.AppendChild (typeEl);
+				}
+				doc.AppendChild (typesEl);
+				AddXmlFile (s, doc, "[Content_Types].xml");
+			}
+
+			s.Finish ();
+			s.Close ();
 			return outFilePath;
+		}
+
+		private static void AddXmlFile (ZipOutputStream s, XmlDocument doc, string fileName)
+		{
+			MemoryStream ms = new MemoryStream ();
+			XmlTextWriter tw = new XmlTextWriter (ms, System.Text.Encoding.UTF8);
+			tw.Formatting = Formatting.Indented;
+			doc.WriteTo (tw);
+			tw.Flush ();
+			byte [] data = ms.ToArray ();
+			var infoEntry = new ZipEntry (fileName) { Size = data.Length };
+			s.PutNextEntry (infoEntry);
+			s.Write (data, 0, data.Length);
+			s.CloseEntry ();
+		}
+
+		XmlDocument GenerateNuspec (AddinDescription conf)
+		{
+			XmlDocument doc = new XmlDocument ();
+			var nugetNs = "http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd";
+			var rootElement = doc.CreateElement ("package", nugetNs);
+			doc.AppendChild (rootElement);
+			var metadataElement = doc.CreateElement ("metadata", nugetNs);
+			rootElement.AppendChild (metadataElement);
+
+			var prop = doc.CreateElement ("id", nugetNs);
+			prop.InnerText = Addin.GetIdName (conf.AddinId);
+			metadataElement.AppendChild (prop);
+
+			prop = doc.CreateElement ("version", nugetNs);
+			prop.InnerText = GetNuGetVersion (conf.Version);
+			metadataElement.AppendChild (prop);
+
+			prop = doc.CreateElement ("packageTypes", nugetNs);
+			prop.InnerText = "VisualStudioMacExtension";
+			metadataElement.AppendChild (prop);
+
+			if (!string.IsNullOrEmpty (conf.Author)) {
+				prop = doc.CreateElement ("authors", nugetNs);
+				prop.InnerText = conf.Author;
+				metadataElement.AppendChild (prop);
+			}
+
+			if (!string.IsNullOrEmpty (conf.Description)) {
+				prop = doc.CreateElement ("description", nugetNs);
+				prop.InnerText = conf.Description;
+				metadataElement.AppendChild (prop);
+			}
+
+			if (!string.IsNullOrEmpty (conf.Name)) {
+				prop = doc.CreateElement ("title", nugetNs);
+				prop.InnerText = conf.Name;
+				metadataElement.AppendChild (prop);
+			}
+
+			var depsElement = doc.CreateElement ("dependencies", nugetNs);
+			metadataElement.AppendChild (depsElement);
+
+			foreach (var dep in conf.MainModule.Dependencies.OfType<AddinDependency> ()) {
+				var depElem = doc.CreateElement ("dependency", nugetNs);
+				depElem.SetAttribute ("id", Addin.GetFullId (conf.Namespace, dep.AddinId, null));
+				depElem.SetAttribute ("version", GetNuGetVersion (dep.Version));
+				depsElement.AppendChild (depElem);
+			}
+			return doc;
+		}
+
+		static string GetNuGetVersion (string version)
+		{
+			if (Version.TryParse (version, out var parsedVersion)) {
+				// NuGet versions always have at least 3 components
+				if (parsedVersion.Build == -1)
+					version += ".0";
+			}
+			return version;
+		}
+
+		static string GetContentType (string extension)
+		{
+			switch (extension) {
+			case "txt": return "text/plain";
+			case "pkgdef": return "text/plain";
+			case "xml": return "text/xml";
+			case "vsixmanifest": return "text/xml";
+			case "htm or html": return "text/html";
+			case "rtf": return "application/rtf";
+			case "pdf": return "application/pdf";
+			case "gif": return "image/gif";
+			case "jpg or jpeg": return "image/jpg";
+			case "tiff": return "image/tiff";
+			case "vsix": return "application/zip";
+			case "zip": return "application/zip";
+			case "dll": return "application/octet-stream";
+			case "info": return "text/xml";//Mono.Addins info file
+			default: return "application/octet-stream";
+			}
 		}
 
 		class SatelliteAssemblyFinder
@@ -520,11 +745,11 @@ namespace Mono.Addins.Setup
 				}
 			}
 		}
-		
+
 		void CleanDescription (XmlElement parent)
 		{
 			ArrayList todelete = new ArrayList ();
-			
+
 			foreach (XmlNode nod in parent.ChildNodes) {
 				XmlElement elem = nod as XmlElement;
 				if (elem == null) {
@@ -539,7 +764,7 @@ namespace Mono.Addins.Setup
 			foreach (XmlNode e in todelete)
 				parent.RemoveChild (e);
 		}
-		
+
 		/// <summary>
 		/// Generates an on-line repository
 		/// </summary>
@@ -556,47 +781,47 @@ namespace Mono.Addins.Setup
 		public void BuildRepository (IProgressStatus statusMonitor, string path)
 		{
 			string mainPath = Path.Combine (path, "main.mrep");
-			ArrayList allAddins = new ArrayList ();
-			
-			Repository rootrep = (Repository) AddinStore.ReadObject (mainPath, typeof(Repository));
+			var allAddins = new List<PackageRepositoryEntry> ();
+
+			Repository rootrep = (Repository)AddinStore.ReadObject (mainPath, typeof (Repository));
 			if (rootrep == null)
 				rootrep = new Repository ();
-			
+
 			IProgressMonitor monitor = ProgressStatusMonitor.GetProgressMonitor (statusMonitor);
 			BuildRepository (monitor, rootrep, path, "root.mrep", allAddins);
 			AddinStore.WriteObject (mainPath, rootrep);
 			GenerateIndexPage (rootrep, allAddins, path);
 			monitor.Log.WriteLine ("Updated main.mrep");
 		}
-		
-		void BuildRepository (IProgressMonitor monitor, Repository rootrep, string rootPath, string relFilePath, ArrayList allAddins)
+
+		void BuildRepository (IProgressMonitor monitor, Repository rootrep, string rootPath, string relFilePath, List<PackageRepositoryEntry> allAddins)
 		{
 			DateTime lastModified = DateTime.MinValue;
-			
+
 			string mainFile = Path.Combine (rootPath, relFilePath);
 			string mainPath = Path.GetDirectoryName (mainFile);
 			string supportFileDir = Path.Combine (mainPath, addinFilesDir);
-			
+
 			if (File.Exists (mainFile))
 				lastModified = File.GetLastWriteTime (mainFile);
-			
-			Repository mainrep = (Repository) AddinStore.ReadObject (mainFile, typeof(Repository));
+
+			Repository mainrep = (Repository)AddinStore.ReadObject (mainFile, typeof (Repository));
 			if (mainrep == null) {
 				mainrep = new Repository ();
 			}
-			
-			ReferenceRepositoryEntry repEntry = (ReferenceRepositoryEntry) rootrep.FindEntry (relFilePath);
+
+			ReferenceRepositoryEntry repEntry = (ReferenceRepositoryEntry)rootrep.FindEntry (relFilePath);
 			DateTime rootLastModified = repEntry != null ? repEntry.LastModified : DateTime.MinValue;
-			
+
 			bool modified = false;
-			
+
 			monitor.Log.WriteLine ("Checking directory: " + mainPath);
-			foreach (string file in Directory.GetFiles (mainPath, "*.mpack")) {
-				
+			foreach (string file in Directory.EnumerateFiles (mainPath, "*.mpack")) {
+
 				DateTime date = File.GetLastWriteTime (file);
 				string fname = Path.GetFileName (file);
-				PackageRepositoryEntry entry = (PackageRepositoryEntry) mainrep.FindEntry (fname);
-				
+				PackageRepositoryEntry entry = (PackageRepositoryEntry)mainrep.FindEntry (fname);
+
 				if (entry != null && date > rootLastModified) {
 					mainrep.RemoveEntry (entry);
 					DeleteSupportFiles (supportFileDir, entry.Addin);
@@ -605,8 +830,8 @@ namespace Mono.Addins.Setup
 
 				if (entry == null) {
 					entry = new PackageRepositoryEntry ();
-					AddinPackage p = (AddinPackage) Package.FromFile (file);
-					entry.Addin = (AddinInfo) p.Addin;
+					AddinPackage p = (AddinPackage)Package.FromFile (file);
+					entry.Addin = (AddinInfo)p.Addin;
 					entry.Url = fname;
 					entry.Addin.Properties.SetPropertyValue ("DownloadSize", new FileInfo (file).Length.ToString ());
 					ExtractSupportFiles (supportFileDir, file, entry.Addin);
@@ -616,20 +841,20 @@ namespace Mono.Addins.Setup
 				}
 				allAddins.Add (entry);
 			}
-			
-			ArrayList toRemove = new ArrayList ();
+
+			var toRemove = new List<PackageRepositoryEntry> ();
 			foreach (PackageRepositoryEntry entry in mainrep.Addins) {
 				if (!File.Exists (Path.Combine (mainPath, entry.Url))) {
 					toRemove.Add (entry);
 					modified = true;
 				}
 			}
-					
+
 			foreach (PackageRepositoryEntry entry in toRemove) {
 				DeleteSupportFiles (supportFileDir, entry.Addin);
 				mainrep.RemoveEntry (entry);
 			}
-			
+
 			if (modified) {
 				AddinStore.WriteObject (mainFile, mainrep);
 				monitor.Log.WriteLine ("Updated " + relFilePath);
@@ -645,15 +870,15 @@ namespace Mono.Addins.Setup
 				repEntry.Url = relFilePath;
 				rootrep.AddEntry (repEntry);
 			}
-			
-			foreach (string dir in Directory.GetDirectories (mainPath)) {
+
+			foreach (string dir in Directory.EnumerateDirectories (mainPath)) {
 				if (Path.GetFileName (dir) == addinFilesDir)
 					continue;
 				string based = dir.Substring (rootPath.Length + 1);
 				BuildRepository (monitor, rootrep, rootPath, Path.Combine (based, "main.mrep"), allAddins);
 			}
 		}
-		
+
 		void DeleteSupportFiles (string targetDir, AddinInfo ainfo)
 		{
 			foreach (var prop in ainfo.Properties) {
@@ -663,10 +888,10 @@ namespace Mono.Addins.Setup
 						File.Delete (file);
 				}
 			}
-			if (Directory.Exists (targetDir) && Directory.GetFileSystemEntries (targetDir).Length == 0)
+			if (Directory.Exists (targetDir) && !Directory.EnumerateFileSystemEntries (targetDir).Any ())
 				Directory.Delete (targetDir, true);
 		}
-		
+
 		void ExtractSupportFiles (string targetDir, string file, AddinInfo ainfo)
 		{
 			Random r = new Random ();
@@ -697,9 +922,9 @@ namespace Mono.Addins.Setup
 			} finally {
 				zfile.Close ();
 			}
- 		}
-		
-		void GenerateIndexPage (Repository rep, ArrayList addins, string basePath)
+		}
+
+		void GenerateIndexPage (Repository rep, List<PackageRepositoryEntry> addins, string basePath)
 		{
 			StreamWriter sw = new StreamWriter (Path.Combine (basePath, "index.html"));
 			sw.WriteLine ("<html><body>");
@@ -708,31 +933,34 @@ namespace Mono.Addins.Setup
 				sw.WriteLine ("<h2>" + rep.Name + "</h2>");
 			sw.WriteLine ("<p>This is a list of add-ins available in this repository.</p>");
 			sw.WriteLine ("<table border=1><thead><tr><th>Add-in</th><th>Version</th><th>Description</th></tr></thead>");
-			
+
 			foreach (PackageRepositoryEntry entry in addins) {
 				sw.WriteLine ("<tr><td>" + entry.Addin.Name + "</td><td>" + entry.Addin.Version + "</td><td>" + entry.Addin.Description + "</td></tr>");
 			}
-			
+
 			sw.WriteLine ("</table>");
 			sw.WriteLine ("</body></html>");
 			sw.Close ();
 		}
-		
+
 		internal AddinSystemConfiguration Configuration {
 			get {
 				if (config == null) {
-					config = (AddinSystemConfiguration) AddinStore.ReadObject (RootConfigFile, typeof(AddinSystemConfiguration));
+					if (File.Exists (RootConfigFile))
+						config = (AddinSystemConfiguration)AddinStore.ReadObject (RootConfigFile, typeof (AddinSystemConfiguration));
+					else
+						config = (AddinSystemConfiguration)AddinStore.ReadObject (RootConfigFileOld, typeof (AddinSystemConfiguration));
 					if (config == null)
 						config = new AddinSystemConfiguration ();
 				}
 				return config;
 			}
 		}
-		
+
 		internal void SaveConfiguration ()
 		{
 			if (config != null) {
-				AddinStore.WriteObject (RootConfigFile, config); 
+				AddinStore.WriteObject (RootConfigFile, config);
 			}
 		}
 
@@ -740,15 +968,17 @@ namespace Mono.Addins.Setup
 		{
 			if (File.Exists (RootConfigFile))
 				File.Delete (RootConfigFile);
+			if (File.Exists (RootConfigFileOld))
+				File.Delete (RootConfigFileOld);
 			ResetAddinInfo ();
 		}
-				
+
 		internal void ResetAddinInfo ()
 		{
 			if (Directory.Exists (RepositoryCachePath))
 				Directory.Delete (RepositoryCachePath, true);
 		}
-		
+
 		/// <summary>
 		/// Gets a reference to an extensible application
 		/// </summary>
@@ -762,7 +992,7 @@ namespace Mono.Addins.Setup
 		{
 			return GetExtensibleApplication (name, null);
 		}
-		
+
 		/// <summary>
 		/// Gets a reference to an extensible application
 		/// </summary>
@@ -784,18 +1014,18 @@ namespace Mono.Addins.Setup
 			else
 				return null;
 		}
-		
+
 		/// <summary>
 		/// Gets a lis of all known extensible applications
 		/// </summary>
 		/// <returns>
 		/// A list of applications.
 		/// </returns>
-		public static Application[] GetExtensibleApplications ()
+		public static Application [] GetExtensibleApplications ()
 		{
 			return GetExtensibleApplications (null);
 		}
-		
+
 		/// <summary>
 		/// Gets a lis of all known extensible applications
 		/// </summary>
@@ -805,10 +1035,10 @@ namespace Mono.Addins.Setup
 		/// <returns>
 		/// A list of applications.
 		/// </returns>
-		public static Application[] GetExtensibleApplications (IEnumerable<string> searchPaths)
+		public static Application [] GetExtensibleApplications (IEnumerable<string> searchPaths)
 		{
 			List<Application> list = new List<Application> ();
-			
+
 			AddinsPcFileCache pcc = GetAddinsPcFileCache (searchPaths);
 			foreach (PackageInfo pinfo in pcc.GetPackages (searchPaths)) {
 				if (pinfo.IsValidPackage)
@@ -816,9 +1046,9 @@ namespace Mono.Addins.Setup
 			}
 			return list.ToArray ();
 		}
-		
+
 		static AddinsPcFileCache pcFileCache;
-		
+
 		static AddinsPcFileCache GetAddinsPcFileCache (IEnumerable<string> searchPaths)
 		{
 			if (pcFileCache == null) {
@@ -831,14 +1061,14 @@ namespace Mono.Addins.Setup
 			return pcFileCache;
 		}
 	}
-	
-	class AddinsPcFileCacheContext: IPcFileCacheContext
+
+	class AddinsPcFileCacheContext : IPcFileCacheContext
 	{
 		public bool IsCustomDataComplete (string pcfile, PackageInfo pkg)
 		{
 			return true;
 		}
-		
+
 		public void StoreCustomData (Mono.PkgConfig.PcFile pcfile, PackageInfo pkg)
 		{
 		}
@@ -849,13 +1079,13 @@ namespace Mono.Addins.Setup
 			Console.WriteLine (ex);
 		}
 	}
-	
-	class AddinsPcFileCache: PcFileCache
+
+	class AddinsPcFileCache : PcFileCache
 	{
-		public AddinsPcFileCache (): base (new AddinsPcFileCacheContext ())
+		public AddinsPcFileCache () : base (new AddinsPcFileCacheContext ())
 		{
 		}
-		
+
 		protected override string CacheDirectory {
 			get {
 				string path = Environment.GetFolderPath (Environment.SpecialFolder.ApplicationData);
@@ -863,7 +1093,7 @@ namespace Mono.Addins.Setup
 				return path;
 			}
 		}
-		
+
 		protected override void ParsePackageInfo (PcFile file, PackageInfo pinfo)
 		{
 			string rootPath = file.GetVariable ("MonoAddinsRoot");
@@ -880,7 +1110,7 @@ namespace Mono.Addins.Setup
 			pinfo.SetData ("MonoAddinsTestCommand", testCmd);
 		}
 	}
-	
+
 	/// <summary>
 	/// A registered extensible application
 	/// </summary>
@@ -894,7 +1124,7 @@ namespace Mono.Addins.Setup
 		string registryPath;
 		string addinsPath;
 		string databasePath;
-		
+
 		internal Application (PackageInfo pinfo)
 		{
 			name = pinfo.Name;
@@ -905,7 +1135,7 @@ namespace Mono.Addins.Setup
 			databasePath = pinfo.GetData ("MonoAddinsCachePath");
 			testCommand = pinfo.GetData ("MonoAddinsTestCommand");
 		}
-		
+
 		/// <summary>
 		/// Add-in registry of the application
 		/// </summary>

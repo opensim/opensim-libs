@@ -29,6 +29,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 
 namespace Mono.Addins.Setup.ProgressMonitoring
 {
@@ -36,7 +37,7 @@ namespace Mono.Addins.Setup.ProgressMonitoring
 	{
 		bool done;
 		
-		ArrayList tasks = new ArrayList ();
+		List<Task> tasks = new List<Task> ();
 		class Task
 		{
 			public string Name;
@@ -97,7 +98,7 @@ namespace Mono.Addins.Setup.ProgressMonitoring
 		}
 		
 		Task LastTask {
-			get { return (Task)tasks [tasks.Count-1]; }
+			get { return tasks [tasks.Count - 1]; }
 		}
 		
 		public string CurrentTask {
@@ -126,11 +127,15 @@ namespace Mono.Addins.Setup.ProgressMonitoring
 				if (done) return 1.0;
 
 				double work = 0;
+				double totalSize = 0;
 				for (int n = tasks.Count - 1; n >= 0; n--) {
 					Task t = (Task) tasks [n];
-					work = t.GetWorkPercent (work) * (double)t.StepSize;
+					work += Math.Max (0, t.GetWorkPercent (work) * (double)t.StepSize);
+					totalSize += t.StepSize;
 				}
-				return work;
+				if (totalSize > 0)
+					work /= totalSize;
+				return Math.Min (1.0, work);
 			}
 		}
 		

@@ -36,6 +36,7 @@ namespace Mono.Addins.Database
 	/// File system extensions can override the behavior of the add-in scanner and provide custom rules for
 	/// locating and scanning assemblies.
 	/// </remarks>
+	[Serializable]
 	public class AddinFileSystemExtension
 	{
 		IAssemblyReflector reflector;
@@ -93,7 +94,7 @@ namespace Mono.Addins.Database
 		/// </param>
 		public virtual System.Collections.Generic.IEnumerable<string> GetFiles (string path)
 		{
-			return Directory.GetFiles (path);
+			return Directory.EnumerateFiles (path);
 		}
 		
 		/// <summary>
@@ -107,7 +108,7 @@ namespace Mono.Addins.Database
 		/// </param>
 		public virtual System.Collections.Generic.IEnumerable<string> GetDirectories (string path)
 		{
-			return Directory.GetDirectories (path);
+			return Directory.EnumerateDirectories (path);
 		}
 
 		/// <summary>
@@ -173,22 +174,56 @@ namespace Mono.Addins.Database
 			Type t;
 			string asmFile = Path.Combine (Path.GetDirectoryName (GetType().Assembly.Location), "Mono.Addins.CecilReflector.dll");
 			if (File.Exists (asmFile)) {
-				Assembly asm = Assembly.LoadFrom (asmFile);
+				// Make sure to load the Mono.Cecil next to the cecil reflector
+				var cecil = Path.Combine (Path.GetDirectoryName (GetType ().Assembly.Location), "Mono.Cecil.dll");
+				if (File.Exists (cecil))
+					Assembly.LoadFile (cecil);
+
+#if NETFRAMEWORK
+				var asm = Assembly.LoadFrom(asmFile);
+#else
+				// The assembly needs to be loaded in the Assembly.Load() context, so use Assembly.Load()
+				// after getting the AssemblyName (which, on .NET Core, also contains the full
+				// path information so Assembly.Load() will work).
+				var asm = Assembly.Load(AssemblyName.GetAssemblyName(asmFile));
+#endif
 				t = asm.GetType ("Mono.Addins.CecilReflector.Reflector");
 			}
 			else {
 				string refName = GetType().Assembly.FullName;
 				int i = refName.IndexOf (',');
 				refName = "Mono.Addins.CecilReflector.Reflector, Mono.Addins.CecilReflector" + refName.Substring (i);
-				t = Type.GetType (refName, false);
+				try
+				{
+					t = Type.GetType(refName, false);
+				}
+				catch (FileLoadException)
+				{
+					// .NET Core may throw an exception if the assembly is not found
+					t = null;
+				}
 			}
 			if (t != null)
-				reflector = (IAssemblyReflector) Activator.CreateInstance (t);
-			else
+				reflector = (IAssemblyReflector)Activator.CreateInstance (t);
+			else {
+#if NETFRAMEWORK
 				reflector = new DefaultAssemblyReflector ();
+#else
+				throw new InvalidOperationException ("CecilReflector assembly not found (Required when running in .NET Core)");
+#endif
+			}
 			
 			reflector.Initialize (locator);
 			return reflector;
+		}
+
+		/// <summary>
+		/// Deletes a file
+		/// </summary>
+		/// <param name="filePath">File path.</param>
+		public virtual void DeleteFile (string filePath)
+		{
+			File.Delete (filePath);
 		}
 
 		internal void CleanupReflector()

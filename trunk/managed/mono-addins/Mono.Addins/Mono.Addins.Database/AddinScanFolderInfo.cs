@@ -32,6 +32,7 @@ using System.IO;
 using System.Collections;
 using System.Collections.Specialized;
 using Mono.Addins.Serialization;
+using System.Collections.Generic;
 
 namespace Mono.Addins.Database
 {
@@ -57,6 +58,16 @@ namespace Mono.Addins.Database
 			this.folder = folder;
 		}
 		
+		public AddinScanFolderInfo (AddinScanFolderInfo other)
+		{
+			files = new Hashtable (other.files);
+			folder = other.folder;
+			fileName = other.fileName;
+			domain = other.domain;
+			sharedFolder = other.sharedFolder;
+			FolderHasScanDataIndex = other.FolderHasScanDataIndex;
+		}
+		
 		public string FileName {
 			get { return fileName; }
 		}
@@ -78,13 +89,17 @@ namespace Mono.Addins.Database
 			return finfo;
 		}
 		
-		static string GetDomain (string path)
+		internal static string GetDomain (string path)
 		{
 			path = Path.GetFullPath (path);
 			string s = path.Replace (Path.DirectorySeparatorChar, '_');
 			s = s.Replace (Path.AltDirectorySeparatorChar, '_');
 			s = s.Replace (Path.VolumeSeparatorChar, '_');
 			s = s.Trim ('_');
+			if (Util.IsWindows) {
+				s = s.ToLowerInvariant();
+			}
+
 			return s;
 		}
 		
@@ -144,7 +159,14 @@ namespace Mono.Addins.Database
 				sharedFolder = value;
 			}
 		}
-		
+
+		public bool FolderHasScanDataIndex { get; set; }
+
+		public void Reset ()
+		{
+			files.Clear ();
+		}
+
 		public DateTime GetLastScanTime (string file)
 		{
 			AddinFileInfo info = (AddinFileInfo) files [file];
@@ -159,7 +181,7 @@ namespace Mono.Addins.Database
 			return (AddinFileInfo) files [file];
 		}
 		
-		public AddinFileInfo SetLastScanTime (string file, string addinId, bool isRoot, DateTime time, bool scanError)
+		public AddinFileInfo SetLastScanTime (string file, string addinId, bool isRoot, DateTime time, bool scanError, string scanDataMD5 = null)
 		{
 			AddinFileInfo info = (AddinFileInfo) files [file];
 			if (info == null) {
@@ -171,16 +193,17 @@ namespace Mono.Addins.Database
 			info.AddinId = addinId;
 			info.IsRoot = isRoot;
 			info.ScanError = scanError;
+			info.ScanDataMD5 = scanDataMD5;
 			if (addinId != null)
 				info.Domain = GetDomain (isRoot);
 			else
 				info.Domain = null;
 			return info;
 		}
-		
-		public ArrayList GetMissingAddins (AddinFileSystemExtension fs)
+
+		public List<AddinFileInfo> GetMissingAddins (AddinFileSystemExtension fs)
 		{
-			ArrayList missing = new ArrayList ();
+			var missing = new List<AddinFileInfo> ();
 			
 			if (!fs.DirectoryExists (folder)) {
 				// All deleted
@@ -191,7 +214,7 @@ namespace Mono.Addins.Database
 				files.Clear ();
 				return missing;
 			}
-			ArrayList toDelete = new ArrayList ();
+			var toDelete = new List<string> ();
 			foreach (AddinFileInfo info in files.Values) {
 				if (!fs.FileExists (info.File)) {
 					if (info.IsAddin)
@@ -218,6 +241,7 @@ namespace Mono.Addins.Database
 			writer.WriteValue ("files", files);
 			writer.WriteValue ("domain", domain);
 			writer.WriteValue ("sharedFolder", sharedFolder);
+			writer.WriteValue ("folderHasDataIndex", FolderHasScanDataIndex);
 		}
 		
 		void IBinaryXmlElement.Read (BinaryXmlReader reader)
@@ -226,6 +250,7 @@ namespace Mono.Addins.Database
 			reader.ReadValue ("files", files);
 			domain = reader.ReadStringValue ("domain");
 			sharedFolder = reader.ReadBooleanValue ("sharedFolder");
+			FolderHasScanDataIndex = reader.ReadBooleanValue ("folderHasDataIndex");
 		}
 	}
 	
@@ -239,6 +264,7 @@ namespace Mono.Addins.Database
 		public bool ScanError;
 		public string Domain;
 		public StringCollection IgnorePaths;
+		public string ScanDataMD5;
 		
 		public bool IsAddin {
 			get { return AddinId != null && AddinId.Length != 0; }
@@ -250,6 +276,18 @@ namespace Mono.Addins.Database
 				IgnorePaths = new StringCollection ();
 			IgnorePaths.Add (path);
 		}
+
+		public bool HasChanged (AddinFileSystemExtension fs, string md5)
+		{
+			// Special case: if an md5 is stored, this method can only return a valid result
+			// if compared with another md5. If no md5 is provided for comparison, then always consider
+			// the file to be changed.
+
+			if (ScanDataMD5 != null)
+				return md5 != ScanDataMD5;
+
+			return fs.GetLastWriteTime (File) != LastScan;
+		}
 		
 		void IBinaryXmlElement.Write (BinaryXmlWriter writer)
 		{
@@ -259,8 +297,8 @@ namespace Mono.Addins.Database
 			writer.WriteValue ("IsRoot", IsRoot);
 			writer.WriteValue ("ScanError", ScanError);
 			writer.WriteValue ("Domain", Domain);
-			if (IgnorePaths != null && IgnorePaths.Count > 0)
-				writer.WriteValue ("IgnorePaths", IgnorePaths);
+			writer.WriteValue ("IgnorePaths", IgnorePaths);
+			writer.WriteValue ("MD5", ScanDataMD5);
 		}
 		
 		void IBinaryXmlElement.Read (BinaryXmlReader reader)
@@ -272,6 +310,7 @@ namespace Mono.Addins.Database
 			ScanError = reader.ReadBooleanValue ("ScanError");
 			Domain = reader.ReadStringValue ("Domain");
 			IgnorePaths = (StringCollection) reader.ReadValue ("IgnorePaths", new StringCollection ());
+			ScanDataMD5 = reader.ReadStringValue ("MD5");
 		}
 	}
 }

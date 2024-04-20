@@ -31,6 +31,7 @@ using System;
 using System.Collections;
 using System.Text;
 using System.IO;
+using System.Collections.Generic;
 
 namespace Mono.Addins.Serialization
 {
@@ -50,7 +51,7 @@ namespace Mono.Addins.Serialization
 		
 		byte currentType;
 		string currentName;
-		ArrayList stringTable = new ArrayList ();
+		List<string> stringTable = new List<string> ();
 		BinaryXmlTypeMap typeMap;
 		object contextData;
 		bool ignoreDesc;
@@ -101,7 +102,7 @@ namespace Mono.Addins.Serialization
 			if (len == -1)
 				return null;
 			if (len < -1)
-				return (string) stringTable [-(len + 2)];
+				return stringTable [-(len + 2)];
 
 			byte[] bytes = new byte [len];
 			int n = 0;
@@ -364,7 +365,7 @@ namespace Mono.Addins.Serialization
 		}
 		
 		public bool EndOfElement {
-			get { return currentType == TagEndElement; }
+			get { return currentType == TagEndElement || currentType == TagEndOfFile; }
 		}
 		
 		public void Skip ()

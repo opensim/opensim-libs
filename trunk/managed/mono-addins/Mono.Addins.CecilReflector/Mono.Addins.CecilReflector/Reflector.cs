@@ -95,7 +95,7 @@ namespace Mono.Addins.CecilReflector
 			
 			if (att.ConstructorArguments.Count > 0) {
 				object[] cargs = new object [att.ConstructorArguments.Count];
-				ArrayList typeParameters = null;
+				List<int> typeParameters = null;
 
 				// Constructor parameters of type System.Type can't be set because types from the assembly
 				// can't be loaded. The parameter value will be set later using a type name property.
@@ -111,7 +111,7 @@ namespace Mono.Addins.CecilReflector
 
 					if (typeof(System.Type).IsAssignableFrom (atype)) {
 						if (typeParameters == null)
-							typeParameters = new ArrayList ();
+							typeParameters = new List<int> ();
 						cargs [n] = typeof(object);
 						typeParameters.Add (n);
 					}
@@ -128,15 +128,11 @@ namespace Mono.Addins.CecilReflector
 					ParameterInfo[] ciParams = ci.GetParameters ();
 					
 					for (int n=0; n<typeParameters.Count; n++) {
-						int ip = (int) typeParameters [n];
+						int ip = typeParameters [n];
 						string propName = ciParams[ip].Name;
-						propName = char.ToUpper (propName [0]) + propName.Substring (1) + "Name";
-						PropertyInfo pi = attype.GetProperty (propName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+						propName = char.ToUpper (propName [0]) + propName.Substring (1);
 
-						if (pi == null)
-							throw new InvalidOperationException ("Property '" + propName + "' not found in type '" + attype + "'.");
-
-						pi.SetValue (ob, ((TypeReference) att.ConstructorArguments [ip].Value).FullName, null);
+						SetTypeNameAndAssemblyName (propName, attype, ob, (TypeReference)att.ConstructorArguments[ip].Value);
 					}
 				}
 			} else {
@@ -148,19 +144,30 @@ namespace Mono.Addins.CecilReflector
 				PropertyInfo prop = attype.GetProperty (pname);
 				if (prop != null) {
 					if (prop.PropertyType == typeof(System.Type)) {
-						// We can't load the type. We have to use the typeName property instead.
-						pname += "Name";
-						prop = attype.GetProperty (pname, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-						
-						if (prop == null)
-							throw new InvalidOperationException ("Property '" + pname + "' not found in type '" + attype + "'.");
-
-						prop.SetValue (ob, ((TypeReference) namedArgument.Argument.Value).FullName, null);
+						SetTypeNameAndAssemblyName (pname, attype, ob, (TypeReference)namedArgument.Argument.Value);
 					} else
 						prop.SetValue (ob, namedArgument.Argument.Value, null);
 				}
 			}
 			return ob;
+		}
+
+		static void SetTypeNameAndAssemblyName (string basePropName, Type attype, object ob, TypeReference typeReference)
+		{
+			// We can't load the type. We have to use the typeName and typeAssemblyName properties instead.
+			var typeNameProp = basePropName + "Name";
+			var prop = attype.GetProperty (typeNameProp, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+						
+			if (prop == null)
+				throw new InvalidOperationException ("Property '" + typeNameProp + "' not found in type '" + attype + "'.");
+
+			var assemblyName = typeReference.Resolve().Module.Assembly.FullName;
+			prop.SetValue (ob, typeReference.FullName + ", " + assemblyName, null);
+
+			prop = attype.GetProperty(basePropName + "FullName", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+			if (prop != null)
+				prop.SetValue(ob, typeReference.FullName, null);
 		}
 		
 		public List<MA.CustomAttribute> GetRawCustomAttributes (object obj, Type type, bool inherit)
@@ -351,6 +358,12 @@ namespace Mono.Addins.CecilReflector
 			adef.Dispose ();
 		}
 
+		public string GetAssemblyName (object assembly)
+		{
+			var adef = (AssemblyDefinition)assembly;
+			return adef.Name.Name;
+		}
+
 		bool FoundToNotReferenceMonoAddins (AssemblyNameReference aref)
 		{
 			// Quick check to find out if an assembly references Mono.Addins, based only on cached information.
@@ -359,7 +372,7 @@ namespace Mono.Addins.CecilReflector
 
 		bool CheckHasMonoAddinsReference (AssemblyDefinition adef)
 		{
-			// Maybe the assembly is already in the blacklist
+			// Maybe the assembly is already in the disallowed list
 			if (assembliesNotReferencingMonoAddins.Contains (adef.FullName))
 				return false;
 
@@ -493,14 +506,14 @@ namespace Mono.Addins.CecilReflector
 		{
 			AssemblyDefinition asm = GetAssemblyDefinition (type);
 
-			ArrayList list = new ArrayList ();
+			var list = new List<string> ();
 			Hashtable visited = new Hashtable ();
 			GetBaseTypeFullNameList (visited, list, asm, type, baseIsMonoAddinsType, includeInterfaces);
 			list.Remove (type.FullName);
 			return list;
 		}
 
-		void GetBaseTypeFullNameList (Hashtable visited, ArrayList list, AssemblyDefinition asm, TypeReference tr, bool baseIsMonoAddinsType, bool includeInterfaces)
+		void GetBaseTypeFullNameList (Hashtable visited, List<string> list, AssemblyDefinition asm, TypeReference tr, bool baseIsMonoAddinsType, bool includeInterfaces)
 		{
 			if (tr.FullName == "System.Object" || visited.Contains (tr.FullName))
 				return;
@@ -589,7 +602,7 @@ namespace Mono.Addins.CecilReflector
 
 		public string GetFieldTypeFullName (object field)
 		{
-			return ((FieldDefinition)field).FieldType.FullName;
+			return GetTypeAssemblyQualifiedName(((FieldDefinition)field).FieldType.Resolve());
 		}
 
 		public void Dispose ()
