@@ -1,4 +1,4 @@
-=OpenSimulator=
+# OpenSimulator
 
 OpenSimulator version > 0.9.3.0 uses the libraries included in mono-addins
 

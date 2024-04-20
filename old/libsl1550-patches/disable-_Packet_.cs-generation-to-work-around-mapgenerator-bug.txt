@@ -1,7 +1,0 @@
-In Dr Schofld's own words
-
-this patch fixes the build problem in opensim-libs/libsl1550 with nant/mcs barfing about the missing message_template.msg --- the real bug is in the mapgenerator. however, since we don't need to regenerate the _Packet_.cs with the current grid, we can just disable the dependency on "map" in libsl1550/libsecondlife/libsecondlife.build --- which is what this patch does.
-
-In my (justincc's words).
-
-This doesn't compile under 1.2.4 because WebClient doesn't contain GetWebRequest() to override.  However, it does compile under Windows (when mono-2.0 is changed to net-2.0) - it may well compile under versions of mono later than 1.2.4

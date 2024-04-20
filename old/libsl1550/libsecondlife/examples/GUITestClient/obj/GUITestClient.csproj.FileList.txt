@@ -1,8 +1,0 @@
-..\..\..\bin\GUITestClient.exe
-..\..\..\bin\GUITestClient.pdb
-obj\Release\ResolveAssemblyReference.cache
-obj\Release\libsecondlife.GUITestClient.frmTestClient.resources
-obj\Release\GUITestClient.Properties.Resources.resources
-obj\Release\GUITestClient.csproj.GenerateResource.Cache
-obj\Release\GUITestClient.exe
-obj\Release\GUITestClient.pdb
