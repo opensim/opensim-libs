@@ -1,71 +1,17 @@
-﻿<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{678DEE13-A366-4130-9BCA-46F695640AD5}</ProjectGuid>
+    <TargetFramework>net8.0</TargetFramework>
     <OutputType>Library</OutputType>
     <NoStandardLibraries>false</NoStandardLibraries>
-    <AssemblyName>XMLRPC</AssemblyName>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile />
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>false</Prefer32Bit>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <Deterministic>true</Deterministic>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>
     </DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>false</Prefer32Bit>
+    <TieredCompilationQuickJit>false</TieredCompilationQuickJit>
+    <Optimize>True</Optimize>
   </PropertyGroup>
-  <PropertyGroup>
-    <RootNamespace>xmlrpc</RootNamespace>
-  </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="System.Xml" />
-    <Reference Include="System.Xml.Linq" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="AssemblyInfo.cs" />
-    <Compile Include="Logger.cs" />
-    <Compile Include="SimpleHttpRequest.cs" />
-    <Compile Include="XmlRpcBoxcarRequest.cs" />
-    <Compile Include="XmlRpcClientProxy.cs" />
-    <Compile Include="XmlRpcDeserializer.cs" />
-    <Compile Include="XmlRpcErrorCodes.cs" />
-    <Compile Include="XmlRpcException.cs" />
-    <Compile Include="XmlRpcExposedAttribute.cs" />
-    <Compile Include="XmlRpcRequest.cs" />
-    <Compile Include="XmlRpcRequestDeserializer.cs" />
-    <Compile Include="XmlRpcRequestSerializer.cs" />
-    <Compile Include="XmlRpcResponder.cs" />
-    <Compile Include="XmlRpcResponse.cs" />
-    <Compile Include="XmlRpcResponseDeserializer.cs" />
-    <Compile Include="XmlRpcResponseSerializer.cs" />
-    <Compile Include="XmlRpcSerializer.cs" />
-    <Compile Include="XmlRpcServer.cs" />
-    <Compile Include="XmlRpcSystemObject.cs" />
-    <Compile Include="XmlRpcXmlTokens.cs" />
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSHARP.Targets" />
-  <ProjectExtensions>
-    <VisualStudio AllowExistingFolder="true" />
-  </ProjectExtensions>
+
 </Project>

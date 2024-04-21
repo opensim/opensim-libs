@@ -43,9 +43,11 @@ namespace Nwc.XmlRpc
                 ArrayList reqArray = new ArrayList();
                 foreach(XmlRpcRequest request in Requests)
                 {
-                    Hashtable requestEntry = new Hashtable();
-                    requestEntry.Add(XmlRpcXmlTokens.METHOD_NAME,request.MethodName);
-                    requestEntry.Add(XmlRpcXmlTokens.PARAMS,request.Params);
+                    Hashtable requestEntry = new Hashtable
+                    {
+                        { XmlRpcXmlTokens.METHOD_NAME, request.MethodName },
+                        { XmlRpcXmlTokens.PARAMS, request.Params }
+                    };
                     reqArray.Add(requestEntry);
                 }
                 _params.Add(reqArray);

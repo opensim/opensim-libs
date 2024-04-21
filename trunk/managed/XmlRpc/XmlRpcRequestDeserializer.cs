@@ -14,9 +14,7 @@ namespace Nwc.XmlRpc
         {
             get
             {
-                if(_singleton == null)
-                    _singleton = new XmlRpcRequestDeserializer();
-
+                _singleton ??= new XmlRpcRequestDeserializer();
                 return _singleton;
             }
         }
@@ -26,10 +24,10 @@ namespace Nwc.XmlRpc
         /// <returns><c>XmlRpcRequest</c> object resulting from the parse.</returns>
         override public Object Deserialize(TextReader xmlData)
         {
-            using(XmlTextReader reader = new XmlTextReader(xmlData))
+            using(XmlTextReader reader = new(xmlData))
             {
                 reader.DtdProcessing = DtdProcessing.Ignore;
-                XmlRpcRequest request = new XmlRpcRequest(reader.Encoding);
+                XmlRpcRequest request = new(reader.Encoding);
                 bool done = false;
 
                 lock(this)

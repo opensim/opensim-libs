@@ -5,6 +5,10 @@ using System.Xml;
 using System.Net;
 using System.Net.Security;
 using System.Text;
+using System.Net.Http;
+using System.Threading;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Nwc.XmlRpc
 {
@@ -12,9 +16,9 @@ namespace Nwc.XmlRpc
     public class XmlRpcRequest
     {
         private string m_methodName = null;
-        private Encoding m_encoding = new UTF8Encoding();
-        private XmlRpcRequestSerializer _serializer = new XmlRpcRequestSerializer();
-        private XmlRpcResponseDeserializer _deserializer = new XmlRpcResponseDeserializer();
+        private readonly Encoding m_encoding = new UTF8Encoding();
+        private readonly XmlRpcRequestSerializer _serializer = new();
+        private readonly XmlRpcResponseDeserializer _deserializer = new();
 
         /// <summary><c>ArrayList</c> containing the parameters.</summary>
         protected IList _params = null;
@@ -67,12 +71,12 @@ namespace Nwc.XmlRpc
         {
             get
             {
-                int index = MethodName.IndexOf(".");
+                int index = MethodName.IndexOf('.');
 
                 if (index == -1)
                     return MethodName;
 
-                return MethodName.Substring(0, index);
+                return MethodName[..index];
             }
         }
 
@@ -81,12 +85,12 @@ namespace Nwc.XmlRpc
         {
             get
             {
-                int index = MethodName.IndexOf(".");
+                int index = MethodName.IndexOf('.');
 
                 if (index == -1)
                     return MethodName;
 
-                return MethodName.Substring(index + 1, MethodName.Length - index - 1);
+                return MethodName.Substring(index + 1);
             }
         }
 
@@ -94,6 +98,16 @@ namespace Nwc.XmlRpc
         /// <param name="url"><c>String</c> The url of the XML-RPC server.</param>
         /// <returns><c>Object</c> The value returned from the method invocation on the server.</returns>
         /// <exception cref="XmlRpcException">If an exception generated on the server side.</exception>
+        public object Invoke(string url, HttpClient client)
+        {
+            XmlRpcResponse res = Send(url, client);
+
+            if (res.IsFault)
+                throw new XmlRpcException(res.FaultCode, res.FaultString);
+
+            return res.Value;
+        }
+
         public object Invoke(string url, RemoteCertificateValidationCallback certCallBack = null)
         {
             XmlRpcResponse res = Send(url, 100000, certCallBack);
@@ -121,7 +135,7 @@ namespace Nwc.XmlRpc
                 request.ServerCertificateValidationCallback = certCallBack;
 
             using (Stream stream = request.GetRequestStream())
-            using (XmlTextWriter xml = new XmlTextWriter(stream, m_encoding))
+            using (XmlTextWriter xml = new(stream, m_encoding))
             {
                 _serializer.Serialize(xml, this);
                 xml.Flush();
@@ -129,9 +143,65 @@ namespace Nwc.XmlRpc
 
             XmlRpcResponse resp;
             using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
-            using (StreamReader input = new StreamReader(response.GetResponseStream()))
+            using (StreamReader input = new(response.GetResponseStream()))
                 resp = (XmlRpcResponse)_deserializer.Deserialize(input);
             return resp;
+        }
+
+        public XmlRpcResponse Send(string url, HttpClient client)
+        {
+            HttpResponseMessage responseMessage = null;
+            HttpRequestMessage request = null;
+            try
+            {
+                request = new(HttpMethod.Post, url);
+                request.Headers.ExpectContinue = false;
+                request.Headers.TransferEncodingChunked = false;
+
+                //if (keepalive)
+                {
+                    request.Headers.TryAddWithoutValidation("Keep-Alive", "timeout=30, max=10");
+                    request.Headers.TryAddWithoutValidation("Connection", "Keep-Alive");
+                }
+                //else
+                //    request.Headers.TryAddWithoutValidation("Connection", "close");
+
+                byte[] outbuf;
+                using (MemoryStream outbufms = new())
+                using (XmlTextWriter xml = new(outbufms, m_encoding))
+                {
+                    _serializer.Serialize(xml, this);
+                    xml.Flush();
+                    outbuf = outbufms.ToArray();
+                }
+
+                request.Content = new ByteArrayContent(outbuf);
+                request.Content.Headers.TryAddWithoutValidation("Content-Type", "text/xml");
+                request.Content.Headers.TryAddWithoutValidation("Content-Length", outbuf.Length.ToString());
+
+                responseMessage = client.Send(request, HttpCompletionOption.ResponseHeadersRead);
+                responseMessage.EnsureSuccessStatusCode();
+
+                XmlRpcResponse resp;
+
+                using (StreamReader input = new(responseMessage.Content.ReadAsStream()))
+                    resp = (XmlRpcResponse)_deserializer.Deserialize(input);
+                return resp;
+            }
+            catch (WebException ex) when (ex.Status is WebExceptionStatus.Timeout)
+            {
+                throw new HttpRequestException("request timeout");
+            }
+            //catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+            catch (TaskCanceledException)
+            {
+                throw new HttpRequestException("request timeout");
+            }
+            finally
+            {
+                request?.Dispose();
+                responseMessage?.Dispose();
+            }
         }
 
         /// <summary>Produce <c>String</c> representation of the object.</summary>

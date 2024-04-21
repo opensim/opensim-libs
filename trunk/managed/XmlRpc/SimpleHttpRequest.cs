@@ -16,9 +16,9 @@ namespace Nwc.XmlRpc
         private String _filePathFile = null;
         private String _filePathDir = null;
         private String __filePath;
-        private TcpClient _client;
-        private StreamReader _input;
-        private StreamWriter _output;
+        private readonly TcpClient _client;
+        private readonly StreamReader _input;
+        private readonly StreamWriter _output;
         private Hashtable _headers;
 
         /// <summary>A constructor which accepts the TcpClient.</summary>
@@ -107,16 +107,16 @@ namespace Nwc.XmlRpc
         {
             get
             {
-                if(_filePathFile != null)
+                if(_filePathFile is not null)
                     return _filePathFile;
 
-                int i = FilePath.LastIndexOf("/");
+                int i = FilePath.LastIndexOf('/');
 
                 if(i == -1)
                     return "";
 
                 i++;
-                _filePathFile = FilePath.Substring(i,FilePath.Length - i);
+                _filePathFile = FilePath[i..];
                 return _filePathFile;
             }
         }
@@ -126,16 +126,15 @@ namespace Nwc.XmlRpc
         {
             get
             {
-                if(_filePathDir != null)
+                if(_filePathDir is not null)
                     return _filePathDir;
 
-                int i = FilePath.LastIndexOf("/");
-
+                int i = FilePath.LastIndexOf('/');
                 if(i == -1)
                     return "";
 
                 i++;
-                _filePathDir = FilePath.Substring(0,i);
+                _filePathDir = FilePath[..i];
                 return _filePathDir;
             }
         }
@@ -143,28 +142,38 @@ namespace Nwc.XmlRpc
         private void GetRequestMethod()
         {
             string req = _input.ReadLine();
-            if(req == null)
+            if(req is null)
                 throw new ApplicationException("Void request.");
+            var sreq = req.AsSpan();
 
-            if(0 == String.Compare("GET ",req.Substring(0,4),true))
+            if(sreq.StartsWith("GET "))
+            {
                 _httpMethod = "GET";
-            else if(0 == String.Compare("POST ",req.Substring(0,5),true))
+                sreq = sreq[5..];
+            }
+            else if(sreq.StartsWith("POST "))
+            {
                 _httpMethod = "POST";
+                sreq = sreq[6..];
+            }
             else
                 throw new InvalidOperationException("Unrecognized method in query: " + req);
 
-            req = req.TrimEnd();
-            int idx = req.IndexOf(' ') + 1;
-            if(idx >= req.Length)
+            sreq = sreq.TrimEnd();
+            if(sreq.Length == 0)
                 throw new ApplicationException("What do you want?");
 
-            string page_protocol = req.Substring(idx);
-            int idx2 = page_protocol.IndexOf(' ');
+            int idx2 = sreq.IndexOf(' ');
             if(idx2 == -1)
-                idx2 = page_protocol.Length;
-
-            _filePath = page_protocol.Substring(0,idx2).Trim();
-            _protocol = page_protocol.Substring(idx2).Trim();
+            {
+                _filePath = sreq.ToString();
+                _protocol = string.Empty;
+            }
+            else
+            {
+                _filePath = sreq[..idx2].Trim().ToString();
+                _protocol = sreq[idx2..].Trim().ToString();
+            }
         }
 
         private void GetRequestHeaders()
@@ -188,8 +197,8 @@ namespace Nwc.XmlRpc
                     continue;
                 }
 
-                String key = line.Substring(0,idx);
-                String value = line.Substring(idx + 1);
+                String key = line[..idx];
+                String value = line[(idx + 1)..];
 
                 try
                 {

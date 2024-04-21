@@ -5,16 +5,16 @@ using System.Collections;
 
 namespace Warp3D
 {
-	public class Warp3D
-	{
-		warp_Scene _scene = null;
+    public class Warp3D
+    {
+        warp_Scene _scene;
 
-        private Hashtable _plugins = new Hashtable();
-        private Hashtable _models = new Hashtable();
+        private readonly Hashtable _plugins = new();
+        private readonly Hashtable _models = new();
 
-		public Warp3D()
-		{
-		}
+        public Warp3D()
+        {
+        }
 
         public warp_Scene Scene
         {
@@ -22,39 +22,29 @@ namespace Warp3D
             set { _scene = value; }
         }
 
-        public bool RegisterPlugIN( string name, warp_FXPlugin plugin )
+        public bool RegisterPlugIN(string name, warp_FXPlugin plugin)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-            _plugins.Add( name, plugin );
+            _plugins.Add(name, plugin);
 
             return true;
         }
 
-        public void ShiftDefaultCamera( float x, float y, float z )
+        public void ShiftDefaultCamera(float x, float y, float z)
         {
-            _scene.defaultCamera.shift( x, y, z );
+            _scene.defaultCamera.shift(x, y, z);
         }
 
-        public bool AddSphere( string name, float radius, int segments )
+        public bool AddSphere(string name, float radius, int segments)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
             warp_Object o = warp_ObjectFactory.SPHERE(radius, segments);
-
-            if( o == null )
-            {
-                return false;
-            }
-
-            _scene.addObject( name, o );
-			_scene.rebuild();
+            _scene.addObject(name, o);
+            _scene.rebuild();
 
             return true;
         }
@@ -66,733 +56,568 @@ namespace Warp3D
 
         public bool AddPlane(string name, float size, bool doubleSide)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
             warp_Object o = warp_ObjectFactory.SIMPLEPLANE(size, doubleSide);
-
-            if ( o == null )
-            {
-                return false;
-            }
-
-            _scene.addObject( name, o );
+            _scene.addObject(name, o);
 
             return true;
         }
 
-        public bool AddCube( string name, float size )
+        public bool AddCube(string name, float size)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-            warp_Object o = warp_ObjectFactory.CUBE( size );
-
-            if ( o == null )
-            {
-                return false;
-            }
-
-            _scene.addObject( name, o );
-			_scene.rebuild();
+            warp_Object o = warp_ObjectFactory.CUBE(size);
+            _scene.addObject(name, o);
+            _scene.rebuild();
 
             return true;
         }
 
-		public bool AddBox( string name, float x, float y, float z )
-		{
-			if ( _scene == null )
-			{
-				return false;
-			}
-
-			warp_Object o = warp_ObjectFactory.BOX( x, y, z );
-
-			if ( o == null )
-			{
-				return false;
-			}
-
-			_scene.addObject( name, o );
-			_scene.rebuild();
-
-			return true;
-		}
-
-
-        public bool ProjectFrontal( string name )
+        public bool AddBox(string name, float x, float y, float z)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-			warp_Object o = _scene.sceneobject(name);
-			if(o == null)
-			{
-				return false;
-			}
-
-            warp_TextureProjector.projectFrontal( o );
+            warp_Object o = warp_ObjectFactory.BOX(x, y, z);
+            _scene.addObject(name, o);
+            _scene.rebuild();
 
             return true;
         }
 
-        public bool ProjectCylindric( string name )
+
+        public bool ProjectFrontal(string name)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-            warp_Object o = _scene.sceneobject( name );
-            if ( o == null )
-            {
+            warp_Object o = _scene.sceneobject(name);
+            if (o is null)
                 return false;
-            }
 
-            warp_TextureProjector.projectCylindric( o );
-
+            warp_TextureProjector.projectFrontal(o);
             return true;
         }
-
-        public bool ShiftObject( string name, float x, float y, float z )
+        public bool ProjectCylindric(string name)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-            warp_Object o = _scene.sceneobject( name );
-            if ( o == null )
-            {
+            warp_Object o = _scene.sceneobject(name);
+            if (o is null)
                 return false;
-            }
 
-			o.shift( x, y, z );
-
+            warp_TextureProjector.projectCylindric(o);
             return true;
         }
 
-		public bool SetPos( string name, float x, float y, float z )
-		{
-			if ( _scene == null )
-			{
-				return false;
-			}
-
-			warp_Object o = _scene.sceneobject( name );
-			if ( o == null )
-			{
-				return false;
-			}
-
-			o.setPos( x, y, z );
-
-			return true;
-		}
-
-
-        public bool AddLensFlare( string name )
+        public bool ShiftObject(string name, float x, float y, float z)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-            warp_FXLensFlare lensFlare = new warp_FXLensFlare( name, _scene, false );
-			lensFlare.preset1();
+            warp_Object o = _scene.sceneobject(name);
+            if (o is null)
+                return false;
 
-            RegisterPlugIN( name, lensFlare );
-
+            o.shift(x, y, z);
             return true;
         }
 
-		public bool NormaliseScene()
-		{
-			if (_scene == null)
-			{
-				return false;
-			}
-
-			_scene.normalize();
-
-			return true;
-		}
-
-		public bool SetAmbient(int c)
-		{
-			if (_scene == null)
-			{
-				return false;
-			}
-
-			_scene.setAmbient(c);
-
-			return true;
-		}
-
-        public bool RotateScene( warp_Quaternion quat, float x, float y, float z )
+        public bool SetPos(string name, float x, float y, float z)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-            _scene.rotate( quat,  x,  y,  z );
+            warp_Object o = _scene.sceneobject(name);
+            if (o is null)
+                return false;
 
+            o.setPos(x, y, z);
             return true;
         }
 
-		public bool RotateScene(float x, float y, float z)
-		{
-			if (_scene == null)
-			{
-				return false;
-			}
 
-			_scene.rotate(x, y, z);
-
-			return true;
-		}
-
-        public bool RotateScene( warp_Matrix m )
+        public bool AddLensFlare(string name)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-            _scene.rotate( m );
+            warp_FXLensFlare lensFlare = new(name, _scene, false);
+            lensFlare.preset1();
+
+            RegisterPlugIN(name, lensFlare);
 
             return true;
         }
 
-		public bool ScaleScene(float x, float y, float z)
-		{
-			if (_scene == null)
-			{
-				return false;
-			}
-
-			_scene.scale(x, y, z);
-
-			return true;
-		}
-
-		public bool TranslateScene(float x, float y, float z)
-		{
-			if (_scene == null)
-			{
-				return false;
-			}
-
-			_scene.shift(x, y, z);
-
-			return true;
-		}
-
-
-		public bool RotateObject(string name, float x, float y, float z)
-		{
-			if (_scene == null)
-			{
-				return false;
-			}
-
-			warp_Object o = _scene.sceneobject(name);
-			if(o == null)
-			{
-				return false;
-			}
-
-			o.rotate(x, y, z);
-
-			return true;
-		}
-
-        public bool RotateSelf( string name, float x, float y, float z )
+        public bool NormaliseScene()
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-            warp_Object o = _scene.sceneobject( name );
-            if ( o == null )
-            {
-                return false;
-            }
-
-            o.rotateSelf( x, y, z );
-
+            _scene.normalize();
             return true;
         }
 
-        public bool RotateSelf( string name, warp_Matrix m )
+        public bool SetAmbient(int c)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-            warp_Object o = _scene.sceneobject( name );
-            if ( o == null )
-            {
-                return false;
-            }
-
-            o.rotateSelf( m );
-
+            _scene.setAmbient(c);
             return true;
         }
 
-        public bool RotateSelf( string name, warp_Quaternion quat )
+        public bool RotateScene(warp_Quaternion quat, float x, float y, float z)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-            warp_Object o = _scene.sceneobject( name );
-            if ( o == null )
-            {
-                return false;
-            }
-
-            o.rotateSelf( quat );
-
+            _scene.rotate(quat, x, y, z);
             return true;
         }
 
-
-        public bool ScaleObject( string name, float s )
+        public bool RotateScene(float x, float y, float z)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-            warp_Object o = _scene.sceneobject( name );
-            if ( o == null )
-            {
-                return false;
-            }
-
-            o.scale( s );
-
+            _scene.rotate(x, y, z);
             return true;
         }
 
-		public bool SetObjectMaterial(string name, string m)
-		{
-			if (_scene == null)
-			{
-				return false;
-			}
-
-			warp_Material material = (warp_Material)_scene.materialData[m];
-			if (material == null)
-			{
-				return false;
-			}
-
-			_scene.sceneobject(name).setMaterial(material);
-
-			return true;
-		}
-
-		public bool SetEnvMap(string name, string path)
-		{
-			if (_scene == null)
-			{
-				return false;
-			}
-
-			warp_Texture texture = null;
-			try
-			{
-				texture = new warp_Texture( path );
-			}
-			catch(Exception)
-			{
-				return false;
-			}
-
-			warp_Material material = (warp_Material)_scene.materialData[name];
-			if (material == null)
-			{
-				return false;
-			}
-
-			material.setEnvmap(texture);
-
-			return true;
-		}
-
-		public bool AddLight(string name, float x, float y, float z, int color, int d, int s)
-		{
-			if (_scene == null)
-			{
-				return false;
-			}
-
-			_scene.addLight(name,new warp_Light(new warp_Vector(x,y,z),color,d,s));
-
-			return true;
-		}
-
-        public bool RotateModelSelf( string name, float x, float y, float z )
+        public bool RotateScene(warp_Matrix m)
         {
-            if ( _scene == null )
+            if (_scene is null)
             {
                 return false;
             }
 
-            Hashtable model = ( Hashtable )_models[ name ];
-            if ( model == null )
-            {
-                return false;
-            }
-
-            foreach ( DictionaryEntry myDE in model )
-            {
-                string key = ( string )myDE.Key;
-                warp_Object o = ( warp_Object )myDE.Value;
-
-                o.rotateSelf( x, y, z );
-            }
+            _scene.rotate(m);
 
             return true;
         }
 
-        public bool RotateModel( string name, float x, float y, float z )
+        public bool ScaleScene(float x, float y, float z)
         {
-            if ( _scene == null )
+            if (_scene is null)
             {
                 return false;
             }
 
-            Hashtable model = ( Hashtable )_models[ name ];
-            if ( model == null )
-            {
-                return false;
-            }
-
-            foreach ( DictionaryEntry myDE in model )
-            {
-                string key = ( string )myDE.Key;
-                warp_Object o = ( warp_Object )myDE.Value;
-
-                o.rotate( x, y, z );
-            }
+            _scene.scale(x, y, z);
 
             return true;
         }
 
-        public bool TranslateModel( string name, float x, float y, float z )
+        public bool TranslateScene(float x, float y, float z)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-            Hashtable model = ( Hashtable )_models[ name ];
-            if ( model == null )
-            {
-                return false;
-            }
-
-            foreach ( DictionaryEntry myDE in model )
-            {
-                string key = ( string )myDE.Key;
-                warp_Object o = ( warp_Object )myDE.Value;
-
-                o.shift( x, y, z );
-            }
-
+            _scene.shift(x, y, z);
             return true;
         }
 
-        public bool ScaleModel( string name, float scale )
+
+        public bool RotateObject(string name, float x, float y, float z)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-            Hashtable model = (Hashtable)_models[ name ];
-            if ( model == null )
-            {
+            warp_Object o = _scene.sceneobject(name);
+            if (o is null)
                 return false;
-            }
 
-            foreach ( DictionaryEntry myDE in model )
-            {
-                string key = ( string )myDE.Key;
-                warp_Object o = ( warp_Object )myDE.Value;
-
-                o.scaleSelf( scale );
-            }
-
+            o.rotate(x, y, z);
             return true;
         }
 
-		public Hashtable Import3Ds(string name, string path, bool addtoscene)
-		{
-			if (_scene == null)
-			{
-				return null;
-			}
+        public bool RotateSelf(string name, float x, float y, float z)
+        {
+            if (_scene is null)
+                return false;
 
-            Hashtable list = null;
-			warp_3ds_Importer studio = new warp_3ds_Importer();
-			try
-			{
-				list = studio.importFromFile( name, path );
+            warp_Object o = _scene.sceneobject(name);
+            if (o is null)
+                return false;
 
-                if ( addtoscene )
+            o.rotateSelf(x, y, z);
+            return true;
+        }
+
+        public bool RotateSelf(string name, warp_Matrix m)
+        {
+            if (_scene is null)
+                return false;
+
+            warp_Object o = _scene.sceneobject(name);
+            if (o is null)
+                return false;
+
+            o.rotateSelf(m);
+            return true;
+        }
+
+        public bool RotateSelf(string name, warp_Quaternion quat)
+        {
+            if (_scene is null)
+                return false;
+
+            warp_Object o = _scene.sceneobject(name);
+            if (o is null)
+                return false;
+
+            o.rotateSelf(quat);
+            return true;
+        }
+
+
+        public bool ScaleObject(string name, float s)
+        {
+            if (_scene is null)
+                return false;
+
+            warp_Object o = _scene.sceneobject(name);
+            if (o is null)
+                return false;
+
+            o.scale(s);
+            return true;
+        }
+
+        public bool SetObjectMaterial(string name, string m)
+        {
+            if (_scene is null)
+                return false;
+
+            if (_scene.objectData.TryGetValue(name, out warp_Object o) && _scene.materialData.TryGetValue(m, out warp_Material material) && material is not null)
+            {
+                o.setMaterial(material);
+                return true;
+            }
+            return false;
+        }
+
+        public bool SetEnvMap(string name, string path)
+        {
+            if (_scene is null)
+                return false;
+
+            if (_scene.materialData.TryGetValue(name, out warp_Material material) && material is not null)
+            {
+                warp_Texture texture;
+                try
                 {
-                    foreach ( DictionaryEntry myDE in list )
+                    texture = new warp_Texture(path);
+                }
+                catch (Exception)
+                {
+                    return false;
+                }
+
+                material.setEnvmap(texture);
+                return true;
+            }
+            return false;
+        }
+
+        public bool AddLight(string name, float x, float y, float z, int color, int d, int s)
+        {
+            if (_scene is null)
+                return false;
+
+            _scene.addLight(name, new warp_Light(new warp_Vector(x, y, z), color, d, s));
+            return true;
+        }
+
+        public bool RotateModelSelf(string name, float x, float y, float z)
+        {
+            if (_scene is null)
+                return false;
+
+            if (_models[name] is not Hashtable model)
+                return false;
+
+            foreach (DictionaryEntry myDE in model)
+            {
+                warp_Object o = (warp_Object)myDE.Value;
+                o.rotateSelf(x, y, z);
+            }
+
+            return true;
+        }
+
+        public bool RotateModel(string name, float x, float y, float z)
+        {
+            if (_scene is null)
+                return false;
+
+            if (_models[name] is not Hashtable model)
+                return false;
+
+            foreach (DictionaryEntry myDE in model)
+            {
+                warp_Object o = (warp_Object)myDE.Value;
+                o.rotate(x, y, z);
+            }
+
+            return true;
+        }
+
+        public bool TranslateModel(string name, float x, float y, float z)
+        {
+            if (_scene is null)
+                return false;
+
+            if (_models[name] is not Hashtable model)
+                return false;
+
+            foreach (DictionaryEntry myDE in model)
+            {
+                warp_Object o = (warp_Object)myDE.Value;
+                o.shift(x, y, z);
+            }
+
+            return true;
+        }
+
+        public bool ScaleModel(string name, float scale)
+        {
+            if (_scene is null)
+                return false;
+
+            if (_models[name] is not Hashtable model)
+                return false;
+
+            foreach (DictionaryEntry myDE in model)
+            {
+                warp_Object o = (warp_Object)myDE.Value;
+                o.scaleSelf(scale);
+            }
+
+            return true;
+        }
+
+        public Hashtable Import3Ds(string name, string path, bool addtoscene)
+        {
+            if (_scene is null)
+                return null;
+
+            Hashtable list;
+            warp_3ds_Importer studio = new();
+            try
+            {
+                list = studio.importFromFile(name, path);
+
+                if (addtoscene)
+                {
+                    foreach (DictionaryEntry myDE in list)
                     {
                         string key = (string)myDE.Key;
                         warp_Object o = (warp_Object)myDE.Value;
 
-                        _scene.addObject( key , o );
+                        _scene.addObject(key, o);
                     }
                 }
 
                 _scene.rebuild();
-                _models.Add( name, list );
-			}
-			catch(Exception)
-			{
-				return null;
-			}
+                _models.Add(name, list);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
 
-			return list;
-		}
+            return list;
+        }
 
-		public bool SetBackgroundColor(int c)
-		{
-			if (_scene == null)
-			{
-				return false;
-			}
-
-			_scene.environment.bgcolor = c;
-
-			return true;
-		}
-
-		public bool SetBackgroundTexture(string path)
-		{
-			if (_scene == null)
-			{
-				return false;
-			}
-
-			warp_Texture texture = null;
-			try
-			{
-				texture = new warp_Texture(path);
-			}
-			catch (Exception)
-			{
-				return false;
-			}
-
-			_scene.environment.setBackground(texture);
-
-			return true;
-		}
-
-        public bool SetBackgroundMaterial( string path )
+        public bool SetBackgroundColor(int c)
         {
-            if ( _scene == null )
+            if (_scene is null)
+                return false;
+
+            _scene.environment.bgcolor = c;
+            return true;
+        }
+
+        public bool SetBackgroundTexture(string path)
+        {
+            if (_scene is null)
+                return false;
+
+            warp_Texture texture;
+            try
+            {
+                texture = new warp_Texture(path);
+            }
+            catch (Exception)
             {
                 return false;
             }
 
-            warp_Material material = null;
+            _scene.environment.setBackground(texture);
+            return true;
+        }
+
+        public bool SetBackgroundMaterial(string path)
+        {
+            if (_scene is null)
+                return false;
+
+            warp_Material material;
             try
             {
-                material = new warp_Material( path );
+                material = new warp_Material(path);
             }
-            catch ( Exception )
+            catch (Exception)
             {
                 return false;
             }
 
             warp_Texture texture = material.getTexture();
-            if ( texture == null )
-            {
+            if (texture is null)
                 return false;
-            }
 
-            _scene.environment.setBackground( texture );
-
+            _scene.environment.setBackground(texture);
             return true;
         }
 
-        public bool SetWireframe( string name, bool w )
+        public bool SetWireframe(string name, bool w)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-            warp_Material material = ( warp_Material )_scene.materialData[ name ];
-            if ( material == null )
+            if (_scene.materialData.TryGetValue(name, out warp_Material material))
             {
-                return false;
+                material.setWireframe(w);
+                return true;
             }
+            return false;
+        }
 
-            material.setWireframe( w );
+        public bool SetTexture(string name, string path)
+        {
+            if (_scene is null)
+                return false;
 
+            if (_scene.materialData.TryGetValue(name, out warp_Material material))
+            {
+                warp_Texture texture;
+                try
+                {
+                    texture = new warp_Texture(path);
+                }
+                catch (Exception)
+                {
+                    return false;
+                }
+                material.setTexture(texture);
+                return true;
+            }
+            return false;
+
+        }
+
+        public bool AddMaterial(string name)
+        {
+            if (_scene is null)
+                return false;
+
+            warp_Material material = new();
+            _scene.addMaterial(name, material);
             return true;
         }
 
-		public bool SetTexture(string name, string path)
-		{
-			if (_scene == null)
-			{
-				return false;
-			}
-
-			warp_Texture texture = null;
-			try
-			{
-				texture = new warp_Texture( path );
-			}
-			catch(Exception)
-			{
-				return false;
-			}
-
-			warp_Material material = (warp_Material)_scene.materialData[name];
-			if (material == null)
-			{
-				return false;
-			}
-
-			material.setTexture(texture);
-
-			return true;
-		}
-
-		public bool AddMaterial(string name)
-		{
-			if (_scene == null)
-			{
-				return false;
-			}
-
-			warp_Material material = new warp_Material();
-			_scene.addMaterial(name, material);
-
-			return true;
-		}
-
-        public bool AddMaterial( string name, int color )
+        public bool AddMaterial(string name, int color)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-            warp_Material material = new warp_Material( color );
-            _scene.addMaterial( name, material );
-
+            warp_Material material = new(color);
+            _scene.addMaterial(name, material);
             return true;
         }
 
-        public bool AddMaterial( string name, string path )
+        public bool AddMaterial(string name, string path)
         {
-            if ( _scene == null )
-            {
+            if (_scene is null)
                 return false;
-            }
 
-            warp_Material material = null;
+            warp_Material material;
             try
             {
-                material = new warp_Material( path );
+                material = new warp_Material(path);
             }
-            catch ( Exception )
+            catch (Exception)
             {
                 return false;
             }
 
-            _scene.addMaterial( name, material );
+            _scene.addMaterial(name, material);
+            return true;
+        }
+
+        public bool SetReflectivity(string name, int r)
+        {
+            if (_scene is null)
+                return false;
+
+            if (_scene.materialData.TryGetValue(name, out warp_Material material))
+            {
+                material.setReflectivity(r);
+                return true;
+            }
+            return false;
+        }
+
+        public bool Render()
+        {
+            try
+            {
+                _scene.render();
+
+                foreach (DictionaryEntry myDE in _plugins)
+                {
+                    warp_FXPlugin plugin = (warp_FXPlugin)myDE.Value;
+                    plugin.apply();
+                }
+            }
+            catch (Exception)
+            {
+                return false;
+            }
 
             return true;
         }
 
-        public bool SetReflectivity( string name, int r )
-		{
-			if (_scene == null)
-			{
-				return false;
-			}
-
-			warp_Material material = (warp_Material)_scene.materialData[name];
-			if (material == null)
-			{
-				return false;
-			}
-
-			material.setReflectivity(r);
-
-			return true;
-		}
-
-		public bool Render()
-		{
-			try
-			{
-				_scene.render();
-
-                foreach ( DictionaryEntry myDE in _plugins )
-                {
-                    warp_FXPlugin plugin = ( warp_FXPlugin )myDE.Value;
-                    plugin.apply();
-                }
-			}
-			catch (Exception)
-			{
-				return false;
-			}
-
-			return true;
-		}
-
-		public bool CreateScene(int width, int height)
-		{
-			try
-			{
-				_scene = new warp_Scene(width, height);
+        public bool CreateScene(int width, int height)
+        {
+            try
+            {
+                _scene = new warp_Scene(width, height);
                 _plugins.Clear();
                 _models.Clear();
-			}
-			catch (Exception)
-			{
-				Reset();
-				return false;
-			}
+            }
+            catch (Exception)
+            {
+                Reset();
+                return false;
+            }
 
-			return true;
-		}
+            return true;
+        }
 
-		public void Reset()
-		{
-			_scene = null;
+        public void Reset()
+        {
+            _scene = null;
             _plugins.Clear();
             _models.Clear();
-		}
-	}
+        }
+    }
 }

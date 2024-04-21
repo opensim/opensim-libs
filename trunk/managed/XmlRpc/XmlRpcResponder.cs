@@ -12,9 +12,9 @@ namespace Nwc.XmlRpc
     /// side dialog. Namely they manage an inbound deserializer and an outbound serializer. </remarks>
     public class XmlRpcResponder
     {
-        private XmlRpcRequestDeserializer _deserializer = new XmlRpcRequestDeserializer();
-        private XmlRpcResponseSerializer _serializer = new XmlRpcResponseSerializer();
-        private XmlRpcServer _server;
+        private readonly XmlRpcRequestDeserializer _deserializer = new();
+        private readonly XmlRpcResponseSerializer _serializer = new();
+        private readonly XmlRpcServer _server;
         private TcpClient _client;
         private SimpleHttpRequest _httpReq;
 
@@ -58,7 +58,7 @@ namespace Nwc.XmlRpc
         public void Respond(SimpleHttpRequest httpReq)
         {
             XmlRpcRequest xmlRpcReq = (XmlRpcRequest)_deserializer.Deserialize(httpReq.Input);
-            XmlRpcResponse xmlRpcResp = new XmlRpcResponse();
+            XmlRpcResponse xmlRpcResp = new();
 
             try
             {
@@ -74,12 +74,12 @@ namespace Nwc.XmlRpc
                       XmlRpcErrorCodes.APPLICATION_ERROR_MSG + ": " + e2.Message);
             }
 
-            if(Logger.Delegate != null)
+            if(Logger.Delegate is not null)
                 Logger.WriteEntry(xmlRpcResp.ToString(),LogLevel.Information);
 
             XmlRpcServer.HttpHeader(httpReq.Protocol,"text/xml",0," 200 OK",httpReq.Output);
             httpReq.Output.Flush();
-            using(XmlTextWriter xml = new XmlTextWriter(httpReq.Output))
+            using(XmlTextWriter xml = new(httpReq.Output))
             {
                 _serializer.Serialize(xml, xmlRpcResp);
                 xml.Flush();
@@ -90,13 +90,13 @@ namespace Nwc.XmlRpc
         ///<summary>Close all contained resources, both the HttpReq and client.</summary>
         public void Close()
         {
-            if(_httpReq != null)
+            if(_httpReq is not null)
             {
                 _httpReq.Close();
                 _httpReq = null;
             }
 
-            if(_client != null)
+            if(_client is not null)
             {
                 _client.Close();
                 _client = null;

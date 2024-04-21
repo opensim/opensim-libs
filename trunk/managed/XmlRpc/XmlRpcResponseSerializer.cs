@@ -16,9 +16,7 @@ namespace Nwc.XmlRpc
         {
             get
             {
-                if(_singleton == null)
-                    _singleton = new XmlRpcResponseSerializer();
-
+                _singleton ??= new XmlRpcResponseSerializer();
                 return _singleton;
             }
         }

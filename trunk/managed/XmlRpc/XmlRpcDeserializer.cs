@@ -21,7 +21,7 @@ namespace Nwc.XmlRpc
     /// but is designed to be subclassed.</remarks>
     public class XmlRpcDeserializer:XmlRpcXmlTokens
     {
-        private static DateTimeFormatInfo _dateFormat = new DateTimeFormatInfo();
+        private readonly static DateTimeFormatInfo _dateFormat = new();
 
         private object _container;
         private Stack _containerStack;
@@ -58,7 +58,7 @@ namespace Nwc.XmlRpc
             switch(reader.NodeType)
             {
                 case XmlNodeType.Element:
-                    if(Logger.Delegate != null)
+                    if(Logger.Delegate is not null)
                         Logger.WriteEntry("START " + reader.Name,LogLevel.Information);
                     switch(reader.Name)
                     {
@@ -77,13 +77,13 @@ namespace Nwc.XmlRpc
                     }
                     break;
                 case XmlNodeType.EndElement:
-                    if(Logger.Delegate != null)
+                    if(Logger.Delegate is not null)
                         Logger.WriteEntry("END " + reader.Name,LogLevel.Information);
                     switch(reader.Name)
                     {
                         case BASE64:
                             if(string.IsNullOrEmpty(_text))
-                                _value = new byte[0];
+                                _value = Array.Empty<byte>();
                             else
                                 _value = Convert.FromBase64String(_text);
                             break;
@@ -105,25 +105,19 @@ namespace Nwc.XmlRpc
                             _value = Int32.Parse(_text);
                             break;
                         case DATETIME:
-#if __MONO__
-		                    _value = DateParse(_text);
-#else
                             _value = DateTime.ParseExact(_text,"F",_dateFormat);
-#endif
                             break;
                         case NAME:
                             _name = _text;
                             break;
                         case VALUE:
-                            if(_value == null)
-                                _value = _text; // some kits don't use <string> tag, they just do <value>
-
-                            if((_container != null) && (_container is IList)) // in an array?  If so add value to it.
-                                ((IList)_container).Add(_value);
+                            _value ??= _text; // some kits don't use <string> tag, they just do <value>
+                            if(_container is IList cnt) // in an array?  If so add value to it.
+                                cnt.Add(_value);
                             break;
                         case MEMBER:
-                            if((_container != null) && (_container is IDictionary)) // in an struct?  If so add value to it.
-                                ((IDictionary)_container).Add(_name,_value);
+                            if(_container is IDictionary icnt) // in an struct?  If so add value to it.
+                                icnt.Add(_name,_value);
                             break;
                         case ARRAY:
                         case STRUCT:
@@ -133,7 +127,7 @@ namespace Nwc.XmlRpc
                     }
                     break;
                 case XmlNodeType.Text:
-                    if(Logger.Delegate != null)
+                    if(Logger.Delegate is not null)
                         Logger.WriteEntry("Text " + reader.Value,LogLevel.Information);
                     _text = reader.Value;
                     break;
@@ -179,20 +173,6 @@ namespace Nwc.XmlRpc
             _container = null;
             _containerStack = new Stack();
         }
-
-#if __MONO__
-    private DateTime DateParse(String str)
-      {
-	int year = Int32.Parse(str.Substring(0,4));
-	int month = Int32.Parse(str.Substring(4,2));
-	int day = Int32.Parse(str.Substring(6,2));
-	int hour = Int32.Parse(str.Substring(9,2));
-	int min = Int32.Parse(str.Substring(12,2));
-	int sec = Int32.Parse(str.Substring(15,2));
-	return new DateTime(year,month,day,hour,min,sec);
-      }
-#endif
-
     }
 }
 

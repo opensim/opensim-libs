@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace Warp3D
 {
@@ -9,70 +10,64 @@ namespace Warp3D
     /// </summary>
     public class warp_Vertex
     {
-        public warp_Object parent;
+        public warp_Object parent = null;
 
-        public warp_Vector pos = new warp_Vector();   //(x,y,z) Coordinate of vertex
-        public warp_Vector n = new warp_Vector();   //Normal Vector at vertex
-        public float u = 0; // Texture x-coordinate (relative)
-        public float v = 0; // Texture y-coordinate (relative)
-
-
-        public warp_Vector pos2;  //Transformed vertex coordinate
-        public warp_Vector n2;  //Transformed normal vector (camera space)
-        public int x;  //Projected x coordinate
-        public int y;  //Projected y coordinate
-        public int z;  //Projected z coordinate for z-Buffer
-
-        public float tx = 0; // Texture x-coordinate (relative)
-        public float ty = 0; // Texture y-coordinate (relative)
-
-        public int nx = 0; // Normal x-coordinate for envmapping
-        public int ny = 0; // Normal y-coordinate for envmapping
-
-        public float invZ = 1.0f;
-
-        public bool visible = true;  //visibility tag for clipping
-        public int clipcode = 0;
+        public warp_Vector pos;   //(x,y,z) Coordinate of vertex
+        public warp_Vector n;   //Normal at vertex
+        public float u; // Texture x-coordinate (relative)
+        public float v; // Texture y-coordinate (relative)
         public int id; // Vertex index
 
-        //private Vector neighbor=new Vector(); //Neighbor triangles of vertex
-        private List<warp_Triangle> neighbor = new List<warp_Triangle>();
+        // projected data cache
+        public int x;  //x coordinate
+        public int y;  //y coordinate
+        public int z;  //z coordinate for z-Buffer
+
+        public int nx; // Normal x-coordinate for envmapping
+        public int ny; // Normal y-coordinate for envmapping
+
+        public float invZ;
+
+        public int clipcode;
+
+        private readonly List<warp_Triangle> neighbor = new();
 
         public warp_Vertex()
         {
-            pos = new warp_Vector(0f, 0f, 0f);
+            pos = new(0f, 0f, 0f);
         }
 
         public warp_Vertex(float xpos, float ypos, float zpos)
         {
-            pos = new warp_Vector(xpos, ypos, zpos);
+            pos = new(xpos, ypos, zpos);
         }
 
         public warp_Vertex(float xpos, float ypos, float zpos, float u, float v)
         {
-            pos = new warp_Vector(xpos, ypos, zpos);
+            pos = new(xpos, ypos, zpos);
             this.u = u;
             this.v = v;
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public warp_Vertex(warp_Vector ppos)
         {
-            pos = ppos.getClone();
+            pos = ppos;
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public warp_Vertex(warp_Vector ppos, float u, float v)
         {
-            pos = ppos.getClone();
+            pos = ppos;
             this.u = u;
             this.v = v;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public warp_Vertex(warp_Vector ppos, warp_Vector norm, float u, float v)
         {
-            pos = ppos.getClone();
-            n = norm.getClone();
+            pos = ppos;
+            n = norm;
             this.u = u;
             this.v = v;
         }
@@ -80,66 +75,62 @@ namespace Warp3D
         public void project(warp_Matrix vertexProjection, warp_Matrix normalProjection, warp_Camera camera)
         // Projects this vertex into camera space
         {
-            pos2 = pos.transform(vertexProjection);
-            n2 = n.transform(normalProjection);
-
-            if(pos2.z < 0.001f && pos2.z > -0.0001f)
+            warp_Vector pos2 = pos.transform(vertexProjection);
+            if (pos2.z < 0.001f && pos2.z > -0.0001f)
                 pos2.z = 0.001f;
 
-            if(camera.isOrthographic)
+            if (camera.isOrthographic)
             {
                 x = (int)pos2.x;
                 y = (int)pos2.y;
                 invZ = -1.0f;
-                tx = -u;
-                ty = -v;
             }
             else
             {
                 invZ = 1.0f / pos2.z;
                 x = (int)(pos2.x * invZ + camera.halfscreenwidth);
                 y = (int)(pos2.y * invZ + camera.halfscreenheight);
-                invZ = - invZ;
-                tx = u * invZ;
-                ty = v * invZ;
+                invZ = -invZ;
             }
-
             z = (int)(65536f * pos2.z);
-            nx = ((int)(n2.x * 127 + 127)) << 16;
-            ny = ((int)(n2.y * 127 + 127)) << 16;
+
+            n.transformToXY(normalProjection, out float nxf, out float nyf);
+            nx = ((int)(nxf * 127 + 127)) << 16;
+            ny = ((int)(nyf * 127 + 127)) << 16;
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void setUV(float u, float v)
         {
             this.u = u;
             this.v = v;
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void clipFrustrum(int w, int h)
         {
             // View plane clipping
             clipcode = 0;
-            if(x < 0)
+            if (x < 0)
                 clipcode |= 1;
-            else if(x >= w)
+            else if (x >= w)
                 clipcode |= 2;
-            if(y < 0)
+            if (y < 0)
                 clipcode |= 4;
-            else if(y >= h)
+            else if (y >= h)
                 clipcode |= 8;
-            if(pos2.z < 0)
+            if (z < 0)
                 clipcode |= 16;
-            visible = (clipcode == 0);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void registerNeighbor(warp_Triangle triangle)
         {
-            if(!neighbor.Contains(triangle))
+            if (!neighbor.Contains(triangle))
                 neighbor.Add(triangle);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void resetNeighbors()
         {
             neighbor.Clear();
@@ -150,16 +141,15 @@ namespace Warp3D
             float nx = 0;
             float ny = 0;
             float nz = 0;
-            for(int i = 0; i < neighbor.Count; ++i)
+            for (int i = 0; i < neighbor.Count; ++i)
             {
-                warp_Triangle tri = neighbor[i];
-                warp_Vector wn = tri.rawNorm;
-                nx += wn.x;
-                ny += wn.y;
-                nz += wn.z;
+                nx += neighbor[i].n.x;
+                ny += neighbor[i].n.y;
+                nz += neighbor[i].n.z;
             }
 
-            n = new warp_Vector(nx, ny, nz).normalize();
+            n = new warp_Vector(nx, ny, nz);
+            n.normalize();
         }
 
         /*
@@ -183,42 +173,44 @@ namespace Warp3D
                     n=new warp_Vector(nx,ny,nz).normalize();
                 }
         */
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void scaleTextureCoordinates(float fx, float fy)
         {
             u *= fx;
             v *= fy;
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void moveTextureCoordinates(float fx, float fy)
         {
             u += fx;
             v += fy;
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public warp_Vertex getClone()
         {
-            warp_Vertex newVertex = new warp_Vertex();
-            newVertex.pos = pos.getClone();
-            newVertex.n = n.getClone();
-            newVertex.u = u;
-            newVertex.v = v;
+            warp_Vertex newVertex = new()
+            {
+                pos = pos,
+                n = n,
+                u = u,
+                v = v
+            };
 
             return newVertex;
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool equals(warp_Vertex v)
         {
             return ((pos.x == v.pos.x) && (pos.y == v.pos.y) && (pos.z == v.pos.z));
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool equals(warp_Vertex v, float tolerance)
         {
-            return Math.Abs(warp_Vector.sub(pos, v.pos).length()) < tolerance;
+            return warp_Vector.sub(ref pos, ref v.pos).lengthSquare() < tolerance * tolerance;
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 
 namespace Warp3D
 {
@@ -7,17 +8,16 @@ namespace Warp3D
     /// </summary>
     public class warp_Triangle
     {
+        public const float oneThird = 1.0f / 3f;
         public warp_Object parent;  // the object which obtains this triangle
         public warp_Vertex p1;  // first  vertex
         public warp_Vertex p2;  // second vertex
         public warp_Vertex p3;  // third  vertex
 
         public warp_Vector n;  // Normal vector of flat triangle
-        public warp_Vector rawNorm;  // Normal h vector of flat triangle
         public warp_Vector n2; // Projected Normal vector
 
-        private warp_Vector triangleCenter = new warp_Vector();
-        public float distZ = 0;
+        public int minDistZ = 0;
 
         public int id = 0;
 
@@ -39,36 +39,41 @@ namespace Warp3D
         public void project(warp_Matrix normalProjection)
         {
             n2 = n.transform(normalProjection);
-            distZ = getDistZ();
+            minDistZ = getMinDistZ();
         }
 
         public void regenerateNormal()
         {
-            rawNorm = warp_Vector.vectorProduct(p1.pos, p2.pos, p3.pos);
-            n = rawNorm.normalize();
+            warp_Vector tmpa = warp_Vector.sub(ref p2.pos, ref p1.pos);
+            warp_Vector tmpb = warp_Vector.sub(ref p3.pos, ref p1.pos);
+            n = warp_Vector.vectorProduct(ref tmpa, ref tmpb);
+            n.normalize();
         }
 
         public warp_Vertex getMedium()
         {
-            float cx = (p1.pos.x + p2.pos.x + p3.pos.x) / 3;
-            float cy = (p1.pos.y + p2.pos.y + p3.pos.y) / 3;
-            float cz = (p1.pos.z + p2.pos.z + p3.pos.z) / 3;
-            float cu = (p1.u + p2.u + p3.u) / 3;
-            float cv = (p1.v + p2.v + p3.v) / 3;
+            float cx = (p1.pos.x + p2.pos.x + p3.pos.x) * oneThird;
+            float cy = (p1.pos.y + p2.pos.y + p3.pos.y) * oneThird;
+            float cz = (p1.pos.z + p2.pos.z + p3.pos.z) * oneThird;
+            float cu = (p1.u + p2.u + p3.u) * oneThird;
+            float cv = (p1.v + p2.v + p3.v) * oneThird;
             return new warp_Vertex(cx, cy, cz, cu, cv);
         }
 
         public warp_Vector getCenter()
         {
-            float cx = (p1.pos.x + p2.pos.x + p3.pos.x) / 3;
-            float cy = (p1.pos.y + p2.pos.y + p3.pos.y) / 3;
-            float cz = (p1.pos.z + p2.pos.z + p3.pos.z) / 3;
+            float cx = (p1.pos.x + p2.pos.x + p3.pos.x) * oneThird;
+            float cy = (p1.pos.y + p2.pos.y + p3.pos.y) * oneThird;
+            float cz = (p1.pos.z + p2.pos.z + p3.pos.z) * oneThird;
             return new warp_Vector(cx, cy, cz);
         }
 
-        public float getDistZ()
+        public int getMinDistZ()
         {
-            return p1.z + p2.z + p3.z;
+            int m = p1.z;
+            if (m > p2.z)
+                m = p2.z;
+            return m > p3.z ? p3.z : m;
         }
 
         public bool degenerated()

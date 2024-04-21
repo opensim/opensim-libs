@@ -2,20 +2,18 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Warp3D
 {
     /// <summary>
     /// Summary description for warp_Screen.
     /// </summary>
-    unsafe public class warp_Screen : IDisposable
+    unsafe public class warp_Screen
     {
         public int width;
         public int height;
-
-        Bitmap image = null;
         public int[] pixels;
-        private GCHandle handle;
 
         public warp_Screen(int w, int h)
         {
@@ -23,11 +21,6 @@ namespace Warp3D
             height = h;
 
             pixels = new int[w * h];
-
-            handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
-            IntPtr pointer = Marshal.UnsafeAddrOfPinnedArrayElement(pixels, 0);
-
-            image = new Bitmap(w, h, w * 4, PixelFormat.Format32bppPArgb, pointer);
         }
 
         public void clear(int c)
@@ -47,12 +40,18 @@ namespace Warp3D
 
         public Bitmap getImage()
         {
-            return new Bitmap(image);
+            GCHandle handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+            IntPtr pointer = Marshal.UnsafeAddrOfPinnedArrayElement(pixels, 0);
+            Bitmap image = new Bitmap(width, height, width * 4, PixelFormat.Format32bppPArgb, pointer);
+            Bitmap ret = new Bitmap(image); //duhhhh
+            image.Dispose();
+            handle.Free();
+            return ret;
         }
 
         private unsafe void draw(int width, int height, warp_Texture texture, int posx, int posy, int xsize, int ysize)
         {
-            if (texture == null)
+            if (texture is null)
             {
                 return;
             }
@@ -74,7 +73,7 @@ namespace Warp3D
             xBase = warp_Math.crop(xBase, 0, width);
             yBase = warp_Math.crop(yBase, 0, height);
 
-            fixed(int* px = pixels, txp = texture.pixel)
+            fixed (int* px = pixels, txp = texture.pixel)
             {
                 ty = tyBase;
                 for (int j = yBase; j < yend; j++)
@@ -99,7 +98,7 @@ namespace Warp3D
 
         private void add(int width, int height, warp_Texture texture, int posx, int posy, int xsize, int ysize)
         {
-            if (texture == null)
+            if (texture is null)
             {
                 return;
             }
@@ -136,17 +135,6 @@ namespace Warp3D
                     }
                     ty += dty;
                 }
-            }
-        }
-
-        public void Dispose()
-        {
-            if (image != null)
-            {
-                handle.Free();
-                image.Dispose();
-                image = null;
-                pixels = null;
             }
         }
     }

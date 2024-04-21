@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 
 namespace Warp3D
 {
@@ -8,15 +9,15 @@ namespace Warp3D
     /// 
     public class warp_Camera
     {
-        public warp_Matrix matrix = new warp_Matrix();
-        public warp_Matrix projmatrix = new warp_Matrix();
-        public warp_Matrix normalmatrix = new warp_Matrix();
+        public warp_Matrix matrix = new();
+        public warp_Matrix projmatrix = new();
+        public warp_Matrix normalmatrix = new();
 
         bool needsRebuild = true;   // Flag indicating changes on matrix
 
         // Camera settings
-        public warp_Vector pos = new warp_Vector(0f, 0f, 0f);
-        public warp_Vector lookat = new warp_Vector(0f, 0f, 0f);
+        public warp_Vector pos = warp_Vector.Zero;
+        public warp_Vector lookat = warp_Vector.Zero;
         public float rollfactor = 0f;
 
         public float fovfact;             // Field of View factor
@@ -39,12 +40,14 @@ namespace Warp3D
             setFov(fov);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public warp_Matrix getMatrix()
         {
             rebuildMatrices();
             return matrix;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public warp_Matrix getNormalMatrix()
         {
             rebuildMatrices();
@@ -59,20 +62,19 @@ namespace Warp3D
 
             warp_Vector forward, up, right;
 
-            forward = warp_Vector.sub(lookat, pos);
-            if(Math.Abs(forward.x) < 0.001f && Math.Abs(forward.z) < 0.001f)
+            forward = warp_Vector.sub(ref lookat, ref pos);
+            if(MathF.Abs(forward.x) < 0.001f && MathF.Abs(forward.z) < 0.001f)
             {
                 right = new warp_Vector(1f, 0f, 0f);
-                if(forward.y < 0)
-                    up = new warp_Vector(0f, 0f, 1f);
-                else
-                    up = new warp_Vector(0f, 0f, -1f);
+                up = new warp_Vector(0f, 0f, forward.y < 0 ? 1f : -1f);
             }
             else
             {
                 up = new warp_Vector(0f, 1f, 0f);
-                right = warp_Vector.getNormal(up, forward);
-                up = warp_Vector.getNormal(forward, right);
+                right = warp_Vector.vectorProduct(ref up, ref forward);
+                right.normalize();
+                up = warp_Vector.vectorProduct(ref forward, ref right);
+                up.normalize();
             }
 
             forward.normalize();
@@ -104,9 +106,10 @@ namespace Warp3D
             matrix = warp_Matrix.multiply(projmatrix, matrix);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void setFov(float fov)
         {
-            fovfact = (float)Math.Tan(warp_Math.deg2rad(fov) / 2);
+            fovfact = MathF.Tan(warp_Math.deg2rad(fov) / 2);
             isOrthographic = false;
             needsRebuild = true;
         }
@@ -126,36 +129,42 @@ namespace Warp3D
             needsRebuild = true;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void roll(float angle)
         {
             rollfactor += angle;
             needsRebuild = true;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void setPos(float px, float py, float pz)
         {
             pos = new warp_Vector(px, py, pz);
             needsRebuild = true;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void setPos(warp_Vector p)
         {
             pos = p;
             needsRebuild = true;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void lookAt(float px, float py, float pz)
         {
             lookat = new warp_Vector(px, py, pz);
             needsRebuild = true;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void lookAt(warp_Vector p)
         {
             lookat = p;
             needsRebuild = true;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void setScreensize(int w, int h)
         {
             screenwidth = w;
@@ -166,6 +175,7 @@ namespace Warp3D
             needsRebuild = true;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void shift(float dx, float dy, float dz)
         {
             pos.x += dx;
@@ -177,46 +187,53 @@ namespace Warp3D
             needsRebuild = true;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void shift(warp_Vector v)
         {
             shift(v.x, v.y, v.z);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void rotate(float dx, float dy, float dz)
         {
             pos = pos.transform(warp_Matrix.rotateMatrix(dx, dy, dz));
             needsRebuild = true;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void rotate(warp_Vector v)
         {
             rotate(v.x, v.y, v.z);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static warp_Camera FRONT()
         {
-            warp_Camera cam = new warp_Camera();
+            warp_Camera cam = new();
             cam.setPos(0, 0, -2f);
             return cam;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static warp_Camera LEFT()
         {
-            warp_Camera cam = new warp_Camera();
+            warp_Camera cam = new();
             cam.setPos(2f, 0, 0);
             return cam;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static warp_Camera RIGHT()
         {
-            warp_Camera cam = new warp_Camera();
+            warp_Camera cam = new();
             cam.setPos(-2f, 0, 0);
             return cam;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static warp_Camera TOP()
         {
-            warp_Camera cam = new warp_Camera();
+            warp_Camera cam = new();
             cam.setPos(0, -2f, 0);
             return cam;
         }

@@ -7,7 +7,7 @@ namespace Nwc.XmlRpc
     /// include a message so this adds the code needed by XML-RPC.</remarks>
     public class XmlRpcException:Exception
     {
-        private int _code;
+        private readonly int _code;
 
         /// <summary>Instantiate an <c>XmlRpcException</c> with a code and message.</summary>
         /// <param name="code"><c>Int</c> faultCode associated with this exception.</param>
@@ -38,7 +38,7 @@ namespace Nwc.XmlRpc
         /// <summary>Format the message to include the code.</summary>
         override public String ToString()
         {
-            return "Code: " + FaultCode + " Message: " + base.ToString();
+            return $"Code: {FaultCode} Message: {base.ToString()}";
         }
     }
 }

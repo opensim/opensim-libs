@@ -9,12 +9,12 @@ namespace Warp3D
         public warp_Scene scene = null;
         public warp_Screen screen = null;
 
-        public warp_FXPlugin( warp_Scene scene )
-		{
-			this.scene = scene;
-			screen = scene.renderPipeline.screen;
-		}
-		
-		public abstract void apply();
+        public warp_FXPlugin(warp_Scene scene)
+        {
+            this.scene = scene;
+            screen = scene.renderPipeline.screen;
+        }
+
+        public abstract void apply();
     }
 }

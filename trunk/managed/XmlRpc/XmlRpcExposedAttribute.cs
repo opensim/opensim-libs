@@ -35,7 +35,7 @@ namespace Nwc.XmlRpc
             Type type = obj.GetType();
             MethodInfo method = type.GetMethod(methodName);
 
-            if(method == null)
+            if(method is null)
                 throw new MissingMethodException("Method " + methodName + " not found.");
 
             if(!IsExposed(type))

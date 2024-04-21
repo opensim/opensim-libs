@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Timers;
 
@@ -10,33 +11,30 @@ namespace Warp3D
     /// </summary>
     public class warp_Scene : warp_CoreObject
     {
-        public static String version = "1.0.0";
-        public static String release = "0010";
+        public static string version = "1.0.1";
+        public static string release = "0010";
 
         public warp_RenderPipeline renderPipeline;
         public int width, height;
 
-        public warp_Environment environment = new warp_Environment();
+        public warp_Environment environment = new();
         public warp_Camera defaultCamera = warp_Camera.FRONT();
 
         public warp_Object[] wobject;
         public warp_Light[] light;
-
-        public int objects = 0;
-        public int lights = 0;
 
         private bool objectsNeedRebuild = true;
         private bool lightsNeedRebuild = true;
 
         protected bool preparedForRendering = false;
 
-        public warp_Vector normalizedOffset = new warp_Vector(0f, 0f, 0f);
+        public warp_Vector normalizedOffset = new(0f, 0f, 0f);
         public float normalizedScale = 1f;
 
-        public Hashtable objectData = new Hashtable();
-        public Hashtable lightData = new Hashtable();
-        public Hashtable materialData = new Hashtable();
-        public Hashtable cameraData = new Hashtable();
+        public Dictionary<string, warp_Object> objectData = new();
+        public Dictionary<string, warp_Light> lightData = new();
+        public Dictionary<string, warp_Material> materialData = new();
+        public Dictionary<string, warp_Camera> cameraData = new();
 
         public warp_Scene()
         {
@@ -52,16 +50,13 @@ namespace Warp3D
 
         public void destroy()
         {
-            objects = objectData.Count;
             foreach (warp_Object o in objectData.Values)
                 o.destroy();
 
-            objectData.Clear();
-            lightData.Clear();
-            materialData.Clear();
-            cameraData.Clear();
-            if (renderPipeline != null)
-                renderPipeline.Dispose();
+            objectData = null;
+            lightData = null;
+            materialData = null;
+            cameraData = null;
             renderPipeline = null;
             environment = null;
             defaultCamera = null;
@@ -70,8 +65,7 @@ namespace Warp3D
 
         public void removeAllObjects()
         {
-
-            objectData = new Hashtable();
+            objectData = new Dictionary<string, warp_Object>();
             objectsNeedRebuild = true;
             rebuild();
         }
@@ -82,54 +76,53 @@ namespace Warp3D
             {
                 objectsNeedRebuild = false;
 
-                objects = objectData.Count;
-                wobject = new warp_Object[objects];
-                IDictionaryEnumerator enumerator = objectData.GetEnumerator();
+                wobject = new warp_Object[objectData.Count];
 
-                for (int i = 0; i < objects; ++i)
+                int i = 0;
+                foreach (warp_Object o in objectData.Values)
                 {
-                    enumerator.MoveNext();
-                    wobject[i] = (warp_Object)enumerator.Value;
-
+                    wobject[i] = o;
                     wobject[i].id = i;
                     wobject[i].rebuild();
+                    i++;
                 }
             }
 
             if (lightsNeedRebuild)
             {
                 lightsNeedRebuild = false;
-                lights = lightData.Count;
-                light = new warp_Light[lights];
-                IDictionaryEnumerator enumerator = lightData.GetEnumerator();
-                for (int i = lights - 1; i >= 0; i--)
-                {
-                    enumerator.MoveNext();
-                    light[i] = (warp_Light)enumerator.Value;
-
-                }
+                light = new warp_Light[lightData.Count];
+                lightData.Values.CopyTo(light, 0);
             }
         }
 
-        public warp_Object sceneobject(String key)
+        public warp_Object sceneobject(string key)
         {
-            return (warp_Object)objectData[key];
+            if (objectData.TryGetValue(key, out warp_Object obj))
+                return obj;
+            return null;
+        }
+        public bool TryGetSceneObject(string key, out warp_Object obj)
+        {
+            return objectData.TryGetValue(key, out obj);
         }
 
-        public warp_Material material(String key)
+        public bool TryGetMaterial(string key, out warp_Material material)
         {
-            return (warp_Material)materialData[key];
+            return materialData.TryGetValue(key, out material);
         }
 
-        public warp_Camera camera(String key)
+        public warp_Camera camera(string key)
         {
-            return (warp_Camera)cameraData[key];
+            if (cameraData.TryGetValue(key, out warp_Camera camera))
+                return camera;
+            return null;
         }
 
-        public void addObject(String key, warp_Object obj)
+        public void addObject(string key, warp_Object obj)
         {
             obj.name = key;
-            objectData.Add(key, obj);
+            objectData[key] = obj;
             obj.parent = this;
             objectsNeedRebuild = true;
             preparedForRendering = false;
@@ -142,19 +135,19 @@ namespace Warp3D
             preparedForRendering = false;
         }
 
-        public void addMaterial(String key, warp_Material m)
+        public void addMaterial(string key, warp_Material m)
         {
-            materialData.Add(key, m);
+            materialData[key] = m;
         }
 
-        public void removeMaterial(String key)
+        public void removeMaterial(string key)
         {
             materialData.Remove(key);
         }
 
         public void addCamera(String key, warp_Camera c)
         {
-            cameraData.Add(key, c);
+            cameraData[key] = c;
         }
 
         public void removeCamera(String key)
@@ -162,9 +155,9 @@ namespace Warp3D
             cameraData.Remove(key);
         }
 
-        public void addLight(String key, warp_Light l)
+        public void addLight(string key, warp_Light l)
         {
-            lightData.Add(key, l);
+            lightData[key] = l;
             lightsNeedRebuild = true;
         }
 
@@ -213,14 +206,16 @@ namespace Warp3D
         public int countVertices()
         {
             int counter = 0;
-            for (int i = 0; i < objects; i++) counter += wobject[i].vertices;
+            for (int i = 0; i < wobject.Length; i++)
+                counter += wobject[i].vertexData.Count;
             return counter;
         }
 
         public int countTriangles()
         {
             int counter = 0;
-            for (int i = 0; i < objects; i++) counter += wobject[i].triangles;
+            for (int i = 0; i < wobject.Length; i++)
+                counter += wobject[i].triangleData.Count;
             return counter;
         }
 
@@ -229,46 +224,30 @@ namespace Warp3D
             objectsNeedRebuild = true;
             rebuild();
 
-            warp_Vector min, max, tempmax, tempmin;
-            if (objects == 0)
-            {
+            if (wobject.Length == 0)
                 return;
-            }
 
             matrix = new warp_Matrix();
             normalmatrix = new warp_Matrix();
 
-            max = wobject[0].maximum();
-            min = wobject[0].maximum();
-
-            for (int i = 0; i < objects; i++)
+            warp_Vector min = wobject[0].fastMin;
+            warp_Vector max = wobject[0].fastMax;
+            for (int i = 0; i < wobject.Length; i++)
             {
-                tempmax = wobject[i].maximum();
-                tempmin = wobject[i].maximum();
+                warp_Vector tempmin = wobject[i].fastMin;
+                warp_Vector tempmax = wobject[i].fastMax;
                 if (tempmax.x > max.x)
-                {
                     max.x = tempmax.x;
-                }
                 if (tempmax.y > max.y)
-                {
                     max.y = tempmax.y;
-                }
                 if (tempmax.z > max.z)
-                {
                     max.z = tempmax.z;
-                }
                 if (tempmin.x < min.x)
-                {
                     min.x = tempmin.x;
-                }
                 if (tempmin.y < min.y)
-                {
                     min.y = tempmin.y;
-                }
                 if (tempmin.z < min.z)
-                {
                     min.z = tempmin.z;
-                }
             }
             float xdist = max.x - min.x;
             float ydist = max.y - min.y;
@@ -289,7 +268,7 @@ namespace Warp3D
 
         public float EstimateBoxProjectedArea(warp_Vector pos, warp_Vector size, warp_Matrix rotation)
         {
-            warp_Matrix om = new warp_Matrix();
+            warp_Matrix om = new();
             om.scale(size.x, size.y, size.z);
             om.transform(rotation);
 
@@ -316,14 +295,12 @@ namespace Warp3D
             warp_Matrix m = warp_Matrix.multiply(defaultCamera.getMatrix(), matrix);
             om.transform(m);
 
-            float zmin;
             side = new warp_Vector(-1f, -1f, -1f);
             v = side.transform(om);
             xmin = v.x;
             xmax = xmin;
             ymin = v.y;
             ymax = ymin;
-            zmin = v.z;
 
             side.x = 1f;
             v = side.transform(om);
@@ -335,8 +312,6 @@ namespace Warp3D
                 ymin = v.y;
             else if (ymax < v.y)
                 ymax = v.y;
-            if (zmin > v.z)
-                zmin = v.z;
 
             side.x = -1f;
             side.y = 1f;
@@ -349,8 +324,6 @@ namespace Warp3D
                 ymin = v.y;
             else if (ymax < v.y)
                 ymax = v.y;
-            if (zmin > v.z)
-                zmin = v.z;
 
             side.x = 1f;
             v = side.transform(om);
@@ -362,8 +335,6 @@ namespace Warp3D
                 ymin = v.y;
             else if (ymax < v.y)
                 ymax = v.y;
-            if (zmin > v.z)
-                zmin = v.z;
 
             side.x = -1f;
             side.y = -1f;
@@ -377,8 +348,6 @@ namespace Warp3D
                 ymin = v.y;
             else if (ymax < v.y)
                 ymax = v.y;
-            if (zmin > v.z)
-                zmin = v.z;
 
             side.x = 1f;
             v = side.transform(om);
@@ -390,8 +359,6 @@ namespace Warp3D
                 ymin = v.y;
             else if (ymax < v.y)
                 ymax = v.y;
-            if (zmin > v.z)
-                zmin = v.z;
 
             side.x = -1f;
             side.y = 1f;
@@ -404,8 +371,6 @@ namespace Warp3D
                 ymin = v.y;
             else if (ymax < v.y)
                 ymax = v.y;
-            if (zmin > v.z)
-                zmin = v.z;
 
             side.x = 1f;
             v = side.transform(om);
@@ -417,9 +382,6 @@ namespace Warp3D
                 ymin = v.y;
             else if (ymax < v.y)
                 ymax = v.y;
-            if (zmin > v.z)
-                zmin = v.z;
-
 
             xmax -= xmin;
             ymax -= ymin;

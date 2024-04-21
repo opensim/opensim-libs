@@ -40,8 +40,7 @@ namespace Nwc.XmlRpc
         ///<param name="level">The <c>LogLevel</c> of your message.</param>
         static public void WriteEntry(String message,LogLevel level)
         {
-            if(Delegate != null)
-                Delegate(message,level);
+            Delegate?.Invoke(message, level);
         }
     }
 }
