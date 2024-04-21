@@ -1,2 +1,0 @@
-D:\opensim\DotNetMail\DotNetOpenMail-0.5.8b-src\DotNetOpenMailTests\obj\Release\DotNetOpenMailTests.csprojAssemblyReference.cache
-D:\opensim\DotNetMail\DotNetOpenMail-0.5.8b-src\DotNetOpenMailTests\obj\Release\DotNetOpenMailTests.csproj.CoreCompileInputs.cache
