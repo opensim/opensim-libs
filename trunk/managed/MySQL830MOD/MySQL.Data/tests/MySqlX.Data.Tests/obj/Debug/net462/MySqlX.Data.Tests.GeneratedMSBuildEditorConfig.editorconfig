@@ -1,0 +1,5 @@
+is_global = true
+build_property.RootNamespace = MySqlX.Data.Tests
+build_property.ProjectDir = D:\Avination\mysql83\MySQL.Data\tests\MySqlX.Data.Tests\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
