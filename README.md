@@ -18,7 +18,7 @@ A few cases may use other arrangement
 
 # Nuget
 
-Opensim will avoid to use Nuget whenever possible. In same cases we may extract and use only the files we need out of the packages garbage
+Opensim will avoid to use Nuget whenever possible. In same cases we may extract and use only the files we need out of the nuget packages garbage
 
 # License
 
