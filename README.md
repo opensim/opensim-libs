@@ -22,4 +22,4 @@ Opensim will avoid to use Nuget whenever possible. In same cases we may extract 
 
 # License
 
-Each library package has its own Open Source License include on its folder tree.
+Each library package has its own Open Source License included on its folder tree.
